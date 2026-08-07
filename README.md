@@ -22,7 +22,7 @@ Abra `index.html` no navegador ou, nesta pasta, rode um servidor local, por exem
 - Instagram e iFood usam os links oficiais fornecidos.
 - Para fotos reais, crie arquivos otimizados (WebP recomendado) dentro de `assets/` e substitua os blocos `.placeholder` da galeria e `.photo-slot` do destaque por elementos `<img>`.
 - A galeria renderiza somente arquivos oficiais cadastrados em `galleryPhotos`, no final de `script.js`; quando vazia, nenhum bloco de foto é exibido.
-- `assets/logo-oficial.jpg` contém a marca oficial fornecida pela empresa e não deve ser substituída por versões recriadas.
+- `assets/logo-oficial.png` contém a marca oficial em alta resolução fornecida pela empresa e não deve ser substituída por versões recriadas.
 
 ## Estrutura
 
