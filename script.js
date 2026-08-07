@@ -1,5 +1,5 @@
 const CONFIG = {
-  whatsapp: '554788573125',
+  whatsapp: '5547988573125',
   instagram: 'https://www.instagram.com/zuquicafe/',
   ifood: 'https://www.ifood.com.br/delivery/itapema-sc/panificadora-e-mercado-canto-da-praia-zuqui-canto-da-praia/09043574-7bd8-44e0-aff3-63025b07087d'
 };
