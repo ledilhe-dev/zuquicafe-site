@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://zuquicafe.com.br/sitemap.xml
