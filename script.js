@@ -1,16 +1,70 @@
 const CONFIG = {
-  whatsapp: '5547988573125',
-  instagram: 'https://www.instagram.com/explore/search/keyword/?q=zuqui%20garden%20coffee',
-  ifood: 'https://www.ifood.com.br/busca?q=Zuqui%20Garden%20Coffee'
+  whatsapp: '554788573125',
+  instagram: 'https://www.instagram.com/zuquicafe/',
+  ifood: 'https://www.ifood.com.br/delivery/itapema-sc/panificadora-e-mercado-canto-da-praia-zuqui-canto-da-praia/09043574-7bd8-44e0-aff3-63025b07087d'
 };
-const message = encodeURIComponent('Olá, Zuqui Café! Gostaria de fazer um pedido ou saber mais.');
-document.querySelectorAll('[data-whatsapp]').forEach(a => { a.href = `https://wa.me/${CONFIG.whatsapp}?text=${message}`; a.target = '_blank'; a.rel = 'noopener'; });
-document.querySelectorAll('[data-instagram]').forEach(a => { a.href = CONFIG.instagram; a.target = '_blank'; a.rel = 'noopener'; });
-document.querySelectorAll('[data-ifood]').forEach(a => { a.href = CONFIG.ifood; a.target = '_blank'; a.rel = 'noopener'; });
-const year = document.getElementById('year'); if (year) year.textContent = new Date().getFullYear();
-const button = document.querySelector('.menu'); const nav = document.querySelector('#navlinks');
-if (button && nav) {
-  button.addEventListener('click', () => { const open = button.getAttribute('aria-expanded') === 'true'; button.setAttribute('aria-expanded', String(!open)); nav.classList.toggle('open'); });
-  nav.querySelectorAll('a').forEach(a => a.addEventListener('click', () => { nav.classList.remove('open'); button.setAttribute('aria-expanded','false'); }));
+
+const whatsappMessage = encodeURIComponent('Olá! Vim pelo site do Zuqui Café e gostaria de fazer um pedido.');
+const externalLink = (element, url) => {
+  element.href = url;
+  element.target = '_blank';
+  element.rel = 'noopener noreferrer';
+};
+
+document.querySelectorAll('[data-whatsapp]').forEach(element => externalLink(element, `https://wa.me/${CONFIG.whatsapp}?text=${whatsappMessage}`));
+document.querySelectorAll('[data-instagram]').forEach(element => externalLink(element, CONFIG.instagram));
+document.querySelectorAll('[data-ifood]').forEach(element => externalLink(element, CONFIG.ifood));
+
+const year = document.getElementById('year');
+if (year) year.textContent = new Date().getFullYear();
+
+const menuButton = document.querySelector('.menu-button');
+const navigation = document.querySelector('#main-nav');
+if (menuButton && navigation) {
+  menuButton.addEventListener('click', () => {
+    const isOpen = menuButton.getAttribute('aria-expanded') === 'true';
+    menuButton.setAttribute('aria-expanded', String(!isOpen));
+    navigation.classList.toggle('open', !isOpen);
+    document.body.classList.toggle('menu-open', !isOpen);
+  });
+  navigation.querySelectorAll('a').forEach(link => link.addEventListener('click', () => {
+    navigation.classList.remove('open');
+    menuButton.setAttribute('aria-expanded', 'false');
+    document.body.classList.remove('menu-open');
+  }));
 }
-const observer = new IntersectionObserver(items => items.forEach(i => i.isIntersecting && i.target.classList.add('shown')), {threshold:.12}); document.querySelectorAll('.reveal, .cards article, .placeholder').forEach(el => observer.observe(el));
+
+if ('IntersectionObserver' in window) {
+  const observer = new IntersectionObserver(entries => entries.forEach(entry => {
+    if (entry.isIntersecting) {
+      entry.target.classList.add('shown');
+      observer.unobserve(entry.target);
+    }
+  }), { threshold: 0.12 });
+  document.querySelectorAll('.reveal, .product-list article, .delivery-options article').forEach(element => observer.observe(element));
+} else {
+  document.querySelectorAll('.reveal, .product-list article, .delivery-options article').forEach(element => element.classList.add('shown'));
+}
+
+// Galeria oficial: quando houver fotos autorizadas, adicione objetos abaixo.
+// Itens sem arquivo não são renderizados. Prefira AVIF/WebP com dimensões definidas.
+const galleryPhotos = [];
+const gallery = document.getElementById('official-gallery');
+if (gallery && galleryPhotos.length) {
+  const fragment = document.createDocumentFragment();
+  galleryPhotos.forEach(photo => {
+    if (!photo.src) return;
+    const figure = document.createElement('figure');
+    const image = document.createElement('img');
+    image.src = photo.src;
+    image.alt = photo.alt || '';
+    image.loading = 'lazy';
+    image.decoding = 'async';
+    if (photo.width) image.width = photo.width;
+    if (photo.height) image.height = photo.height;
+    figure.appendChild(image);
+    fragment.appendChild(figure);
+  });
+  gallery.appendChild(fragment);
+  gallery.hidden = !gallery.childElementCount;
+}

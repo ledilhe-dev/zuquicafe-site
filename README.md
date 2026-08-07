@@ -18,10 +18,11 @@ Abra `index.html` no navegador ou, nesta pasta, rode um servidor local, por exem
 ## Atualizar links e fotos
 
 - WhatsApp, Instagram e iFood ficam centralizados no objeto `CONFIG`, no início de `script.js`.
-- O WhatsApp oficial já está configurado como `(47) 98857-3125`.
-- Instagram e iFood usam buscas seguras enquanto os links diretos oficiais não forem fornecidos. Substitua os valores quando tiver as URLs exatas.
+- O WhatsApp está configurado como `(47) 8857-3125`.
+- Instagram e iFood usam os links oficiais fornecidos.
 - Para fotos reais, crie arquivos otimizados (WebP recomendado) dentro de `assets/` e substitua os blocos `.placeholder` da galeria e `.photo-slot` do destaque por elementos `<img>`.
-- A marca em `assets/logo.svg` é uma versão vetorial preparada para o site. Ela pode ser trocada pelo arquivo oficial mantendo o mesmo nome.
+- A galeria renderiza somente arquivos oficiais cadastrados em `galleryPhotos`, no final de `script.js`; quando vazia, nenhum bloco de foto é exibido.
+- `assets/logo-oficial.jpg` contém a marca oficial fornecida pela empresa e não deve ser substituída por versões recriadas.
 
 ## Estrutura
 
