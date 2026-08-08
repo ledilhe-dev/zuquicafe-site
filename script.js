@@ -46,9 +46,12 @@ if ('IntersectionObserver' in window) {
   document.querySelectorAll('.reveal, .product-list article, .delivery-options article').forEach(element => element.classList.add('shown'));
 }
 
-// Galeria oficial: quando houver fotos autorizadas, adicione objetos abaixo.
-// Itens sem arquivo não são renderizados. Prefira AVIF/WebP com dimensões definidas.
-const galleryPhotos = [];
+const galleryPhotos = [
+  { src: 'assets/photos/frente.webp', alt: 'Fachada do Zuqui Garden Coffee à noite', width: 1264, height: 1095 },
+  { src: 'assets/photos/vitrine.webp', alt: 'Vitrine do Zuqui com brownies e produtos de padaria', width: 939, height: 1255 },
+  { src: 'assets/photos/doce.webp', alt: 'Tortinhas de chocolate com cereja produzidas pelo Zuqui', width: 927, height: 1255 },
+  { src: 'assets/photos/doce2.webp', alt: 'Café e croissants servidos no Zuqui', width: 1103, height: 1255 }
+];
 const gallery = document.getElementById('official-gallery');
 if (gallery && galleryPhotos.length) {
   const fragment = document.createDocumentFragment();
