@@ -4,7 +4,7 @@ const CONFIG = {
   ifood: 'https://www.ifood.com.br/delivery/itapema-sc/panificadora-e-mercado-canto-da-praia-zuqui-canto-da-praia/09043574-7bd8-44e0-aff3-63025b07087d'
 };
 
-const whatsappMessage = encodeURIComponent('Olá! Vim pelo site do Zuqui Café e gostaria de fazer um pedido.');
+const whatsappMessage = encodeURIComponent('Olá! Vim pelo site do Zuqui Café e gostaria de falar com a equipe.');
 const externalLink = (element, url) => {
   element.href = url;
   element.target = '_blank';
