@@ -1,0 +1,10 @@
+{
+  "server": "SERVIDOR\\INSTANCIA",
+  "database": "NOME_DO_BANCO",
+  "uid": "USUARIO_SOMENTE_LEITURA",
+  "driver": "ODBC Driver 17 for SQL Server",
+  "id_filial": 1,
+  "store_key": "zuqui-filial-1",
+  "backend_url": "https://PROJETO.supabase.co/functions/v1/cardapio-api",
+  "interval_minutes": 15
+}
