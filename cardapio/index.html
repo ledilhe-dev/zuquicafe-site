@@ -19,12 +19,11 @@
 </main>
 <aside id="cart" class="cart" aria-hidden="true">
   <div class="cart-head"><div><small>CARRINHO</small><h2>Seu pedido</h2></div><button id="closeCart" aria-label="Fechar">×</button></div><div id="cartItems"></div>
-  <section class="fixed-reference"><small>ENTREGA FIXA EM</small><strong id="fixedReference">Mesa não identificada</strong><span>Definida pelo QR lido na mesa.</span></section>
-  <section id="cardClaimBox" class="claim-box"><strong>LEIA O QR DA SUA COMANDA PARA FINALIZAR</strong><p id="cardClaimStatus">A comanda controla separadamente o seu consumo.</p><button id="scanCard" type="button" class="scan-button">Abrir câmera e ler comanda</button></section>
-  <label>Observação<textarea id="orderNote" maxlength="300" placeholder="Opcional"></textarea></label><div class="total"><span>Total</span><strong id="cartTotal">R$ 0,00</strong></div><button id="reviewButton" class="primary">Revisar e finalizar</button><p id="cartMessage" class="message"></p>
+  <section class="fixed-reference"><strong id="fixedReference">Mesa não identificada</strong></section>
+  <section id="cardClaimBox" class="claim-box"><strong>LEIA O QR DA SUA COMANDA PARA FINALIZAR</strong><p>A câmera abrirá automaticamente ao enviar.</p></section>
+  <label>Observação<textarea id="orderNote" maxlength="300" placeholder="Opcional"></textarea></label><div class="total"><span>Total</span><strong id="cartTotal">R$ 0,00</strong></div><button id="reviewButton" class="primary">Enviar pedido</button><p id="cartMessage" class="message"></p>
 </aside>
 <div id="overlay" class="overlay"></div><div id="toast" class="toast" role="status"></div>
 <dialog id="scannerDialog" class="scanner-dialog"><h2>Ler QR da comanda</h2><p>Aponte a câmera para o QR fixado na comanda do PDV.</p><video id="scannerVideo" playsinline muted></video><p id="scannerMessage" class="message"></p><label class="file-scan">Ou escolha uma foto do QR<input id="qrImage" type="file" accept="image/*" capture="environment"></label><div class="dialog-actions"><button id="closeScanner">Cancelar</button></div></dialog>
-<dialog id="reviewDialog"><h2>Confirme seu pedido</h2><div id="reviewContent"></div><div class="dialog-actions"><button id="backButton">Voltar</button><button id="confirmButton" class="primary">Confirmar pedido</button></div><p id="reviewMessage" class="message"></p></dialog>
 <script src="../cardapio-config.js?v=20260930-3"></script><script type="module" src="./app.js?v=20260930-3"></script>
 </body></html>
