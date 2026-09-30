@@ -6,17 +6,17 @@
   <meta name="theme-color" content="#244a36">
   <title>Cardápio | Zuqui Garden Coffee</title>
   <link rel="icon" href="../assets/favicon.svg">
-  <link rel="stylesheet" href="./styles.css?v=20260930-4"><link rel="stylesheet" href="./enhancements.css?v=20260930-4">
+  <link rel="stylesheet" href="./styles.css?v=20260930-5"><link rel="stylesheet" href="./enhancements.css?v=20260930-5">
 </head>
 <body>
 <header>
   <a href="/" class="brand"><img src="../assets/logo-transparente.png" alt="Zuqui Garden Coffee"></a>
-  <button id="cartButton" class="cart-button" aria-label="Abrir carrinho"><svg class="cart-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 4h2l2.1 10.1a2 2 0 0 0 2 1.6h7.8a2 2 0 0 0 1.9-1.4L21 8H7M10 20a1 1 0 1 1-2 0 1 1 0 0 1 2 0Zm9 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0Z"/></svg><span class="cart-label">Carrinho</span><span id="cartCount" class="cart-count">0</span><strong id="cartHeaderTotal">R$ 0,00</strong></button>
 </header>
 <main>
   <section class="hero"><p>PADARIA • CAFETERIA • MERCADO</p><h1>Seu pedido, do seu jeito.</h1><span>Escolha os produtos e acompanhe seu carrinho em tempo real.</span></section>
   <div id="tableStatus" class="table-status"></div><nav id="categories" class="categories"></nav><div id="notice" class="notice"></div><section id="products" class="products"></section>
 </main>
+<button id="cartButton" class="cart-button" aria-label="Abrir carrinho"><svg class="cart-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 4h2l2.1 10.1a2 2 0 0 0 2 1.6h7.8a2 2 0 0 0 1.9-1.4L21 8H7M10 20a1 1 0 1 1-2 0 1 1 0 0 1 2 0Zm9 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0Z"/></svg><span class="cart-copy"><b>Carrinho</b><small id="cartCount">0 itens</small></span><strong id="cartHeaderTotal">R$ 0,00</strong></button>
 <aside id="cart" class="cart" aria-hidden="true">
   <div class="cart-head"><div><small>CARRINHO</small><h2>Seu pedido</h2></div><button id="closeCart" aria-label="Fechar">×</button></div><div id="cartItems"></div>
   <section class="fixed-reference"><strong id="fixedReference">Mesa não identificada</strong></section>
@@ -25,5 +25,5 @@
 </aside>
 <div id="overlay" class="overlay"></div><div id="toast" class="toast" role="status"></div>
 <dialog id="scannerDialog" class="scanner-dialog"><h2>Ler QR da comanda</h2><p>Aponte a câmera para o QR fixado na comanda do PDV.</p><video id="scannerVideo" playsinline muted></video><p id="scannerMessage" class="message"></p><label class="file-scan">Ou escolha uma foto do QR<input id="qrImage" type="file" accept="image/*" capture="environment"></label><div class="dialog-actions"><button id="closeScanner">Cancelar</button></div></dialog>
-<script src="../cardapio-config.js?v=20260930-4"></script><script type="module" src="./app.js?v=20260930-4"></script>
+<script src="../cardapio-config.js?v=20260930-5"></script><script type="module" src="./app.js?v=20260930-5"></script>
 </body></html>
