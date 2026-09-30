@@ -1,5 +1,5 @@
 from __future__ import annotations
-import argparse,base64,ctypes,hashlib,json,logging,os,sys,time
+import argparse,base64,ctypes,hashlib,json,logging,os,sys,time,uuid
 from ctypes import wintypes
 from datetime import datetime,timezone
 from pathlib import Path
@@ -38,6 +38,29 @@ def test_connection(c):
  with pyodbc.connect(connection(c),timeout=8) as db:
   cur=db.cursor();cur.execute("SELECT (SELECT COUNT_BIG(*) FROM dbo.Produto WITH(NOLOCK)),(SELECT COUNT_BIG(*) FROM dbo.Agrupamento WITH(NOLOCK))");counts=cur.fetchone()
  return post(c,'catalog_sync_connection_test',product_count=int(counts[0]),group_count=int(counts[1]))
+def dispatch_order(c):
+ if not c.get('raffinato_api_url') or not c.get('raffinato_api_auth'):
+  return False
+ queued=post(c,'catalog_sync_order_pending').get('order')
+ if not queued:return False
+ source=queued['request_payload'];now=datetime.now().astimezone().replace(microsecond=0).isoformat();guid=source['guid']
+ integration_guid=str(uuid.uuid5(uuid.NAMESPACE_URL,'zuqui-order:'+guid))
+ items=[]
+ for item in source['items']:
+  quantity=float(item['quantity']);price=float(item['unit_price'])
+  items.append({'idproduto':int(item['raffinato_product_id']),'idgarcom':int(source['waiter_id']),'quantidade':quantity,'valorunitario':price,'valorvariacao':-1,'valortotal':round(quantity*price,2),'observacao':source.get('note',''),'datahora':now,'identificadorintegracao':integration_guid,'porcoespadrao':[]})
+ payload={'isOldOrder':False,'identificador':guid,'idgarcom':int(source['waiter_id']),'setorimpressao':'Nenhum','pedido':{'datahora':now,'nomereferencia':source['reference'],'ocupantes':1,'identificadorpedidointegracao':integration_guid,'observacao':source.get('note',''),'itens':items},'cartaoconsumo':{'nomecliente':str(source['card_code']),'codigovirtual':str(source['card_code'])}}
+ endpoint=c['raffinato_api_url'].rstrip('/')+'/integracao/recebepedidos'
+ try:
+  response=requests.post(endpoint,headers={'Authorization':c['raffinato_api_auth'],'Content-Type':'application/json'},json=payload,timeout=20)
+  try: result=response.json()
+  except Exception: result={'resposta_nao_json':True}
+  post(c,'catalog_sync_order_result',order_id=queued['id'],http_status=response.status_code,result=result,error=None if response.ok and result.get('gravado') is True else 'A API nao confirmou gravado: true')
+ except requests.Timeout:
+  post(c,'catalog_sync_order_result',order_id=queued['id'],timed_out=True,result={},error='timeout')
+ except Exception as exc:
+  post(c,'catalog_sync_order_result',order_id=queued['id'],result={},error=str(exc)[:500])
+ return True
 def sync(c,mode='full',dry=False,request_id=None):
  products=rows(c);payload=[]
  for p in products:
@@ -54,9 +77,16 @@ def setup():
  for k in ('server','database','uid','id_filial','store_key','backend_url','interval_minutes'):
   v=input(f"{k} [{c[k]}]: ").strip();c[k]=int(v) if v and k in ('id_filial','interval_minutes') else (v or c[k])
  c['pwd']=getpass('Senha SQL somente leitura: ');c['sync_token']=getpass('Token do sincronizador: ');save(c);print('Configuração protegida pelo usuário do Windows.')
+def setup_orders():
+ from getpass import getpass
+ c=load();current=c.get('raffinato_api_url','http://26.61.114.43:10060/raffinato/api');value=input(f"URL da API Raffinato [{current}]: ").strip();c['raffinato_api_url']=value or current
+ credential=getpass('Credencial completa Basic gerada pelo Raffinato: ').strip()
+ if not credential.startswith('Basic '):raise ValueError('A credencial deve iniciar com Basic e nao sera recodificada.')
+ c['raffinato_api_auth']=credential;save(c);print('API protegida por DPAPI. A credencial nao foi exibida nem registrada em log.')
 def main():
- a=argparse.ArgumentParser();a.add_argument('--setup',action='store_true');a.add_argument('--once',action='store_true');a.add_argument('--dry-run',action='store_true');a.add_argument('--test-connection',action='store_true');args=a.parse_args()
+ a=argparse.ArgumentParser();a.add_argument('--setup',action='store_true');a.add_argument('--setup-orders',action='store_true');a.add_argument('--once',action='store_true');a.add_argument('--dry-run',action='store_true');a.add_argument('--test-connection',action='store_true');args=a.parse_args()
  if args.setup:return setup()
+ if args.setup_orders:return setup_orders()
  c=load()
  if args.dry_run:
   data=sync(c,dry=True);print(json.dumps({'count':len(data),'examples':data[:5]},ensure_ascii=False,default=str,indent=2));return
@@ -73,6 +103,7 @@ def main():
     pending=post(c,'catalog_sync_pending')
     if pending.get('request_id'):
      logging.info('manual sync %s',pending['request_id']);sync(c,request_id=pending['request_id']);next_periodic=time.time()+max(1,int(c.get('interval_minutes',15)))*60
+    dispatch_order(c)
    except Exception:logging.exception('manual sync poll failed')
-   time.sleep(30)
+   time.sleep(5)
 if __name__=='__main__':main()
