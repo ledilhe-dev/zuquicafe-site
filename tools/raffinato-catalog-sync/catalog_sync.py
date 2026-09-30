@@ -55,7 +55,8 @@ def dispatch_order(c):
   response=requests.post(endpoint,headers={'Authorization':c['raffinato_api_auth'],'Content-Type':'application/json'},json=payload,timeout=20)
   try: result=response.json()
   except Exception: result={'resposta_nao_json':True}
-  post(c,'catalog_sync_order_result',order_id=queued['id'],http_status=response.status_code,result=result,error=None if response.ok and result.get('gravado') is True else 'A API nao confirmou gravado: true')
+  confirmed=(result.get('result') or [{}])[0] if isinstance(result.get('result'),list) else result
+  post(c,'catalog_sync_order_result',order_id=queued['id'],http_status=response.status_code,result=result,error=None if response.ok and confirmed.get('gravado') is True else 'A API nao confirmou gravado: true')
  except requests.Timeout:
   post(c,'catalog_sync_order_result',order_id=queued['id'],timed_out=True,result={},error='timeout')
  except Exception as exc:
