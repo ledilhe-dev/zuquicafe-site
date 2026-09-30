@@ -61,4 +61,13 @@ async function prepareLocalTest(){const button=$('prepareTest'),message=$('local
 async function sendPreparedLocalTest(){const phrase=prompt('Para enviar o único teste, digite exatamente: ENVIAR PEDIDO TESTE');if(phrase!=='ENVIAR PEDIDO TESTE')return alert('Envio cancelado.');const button=$('sendPreparedTest'),message=$('localTestMessage');button.disabled=true;try{const result=await localConnector('/api/raffinato-api/pedido-teste/enviar',{...localConnectorContext,admin_token:localConnectorSession,confirmation:phrase});message.textContent=result.resultado?.gravado===true?`Pedido gravado. idvenda ${result.resultado.idvenda||'-'} · número ${result.resultado.numeropedido||'-'}`:'O Raffinato não confirmou gravado: true.';if(result.resultado?.gravado===true)button.hidden=true}catch(error){message.textContent=error.message}finally{button.disabled=false}}
 $('loginForm').onsubmit=async e=>{e.preventDefault();try{const r=await api('login_v2',{username:$('username').value,password:$('password').value});token=r.access_token;refreshToken=r.refresh_token||'';localStorage.setItem('zuqui_admin_token',token);localStorage.setItem('zuqui_admin_refresh',refreshToken);$('loginView').hidden=true;if(r.must_change_password)$('changeView').hidden=false;else await load()}catch(x){$('loginMsg').textContent=x.message}};
 $('logout').onclick=()=>{token='';refreshToken='';localStorage.removeItem('zuqui_admin_token');localStorage.removeItem('zuqui_admin_refresh');location.reload()};
-if(token)load().catch(async()=>{if(await refreshSession())return load();token='';refreshToken='';localStorage.removeItem('zuqui_admin_token');localStorage.removeItem('zuqui_admin_refresh')});
+async function restoreAdminSession(){
+  $('loginView').hidden=true;$('appView').hidden=true;$('changeView').hidden=true;
+  if(token){
+    try{await load();return}catch(_error){
+      try{if(await refreshSession()){await load();return}}catch(_refreshError){}
+    }
+  }
+  token='';refreshToken='';localStorage.removeItem('zuqui_admin_token');localStorage.removeItem('zuqui_admin_refresh');$('loginView').hidden=false;
+}
+restoreAdminSession();
