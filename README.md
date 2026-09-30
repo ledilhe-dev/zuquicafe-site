@@ -34,4 +34,8 @@ Abra `index.html` no navegador ou, nesta pasta, rode um servidor local, por exem
 - `CNAME` e `.nojekyll`: GitHub Pages
 - `assets/`: marca e imagens sociais
 
+## Cardápio digital (não publicado)
+
+As rotas em preparação são `/cardapio/` e `/cardapioAdm/`. Consulte `docs/cardapio-digital.md` para arquitetura, instalação segura e pendências da integração Raffinato. Pedidos públicos permanecem desabilitados até a validação explícita do primeiro teste.
+
 Todos os caminhos são relativos e funcionam tanto em teste local quanto no domínio raiz.
