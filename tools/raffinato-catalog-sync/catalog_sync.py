@@ -33,7 +33,11 @@ def rows(c):
   cur=db.cursor();cur.execute(SQL,int(c['id_filial']));names=[d[0] for d in cur.description]
   return [dict(zip(names,r)) for r in cur.fetchall()]
 def post(c,action,**body):
- r=requests.post(c['backend_url'],headers={'content-type':'application/json','x-catalog-token':c['sync_token']},json={'action':action,'store_key':c['store_key'],**body},timeout=45);r.raise_for_status();return r.json()
+ r=requests.post(c['backend_url'],headers={'content-type':'application/json','x-catalog-token':c['sync_token']},json={'action':action,'id_filial':int(c['id_filial']),**body},timeout=45);r.raise_for_status();return r.json()
+def test_connection(c):
+ with pyodbc.connect(connection(c),timeout=8) as db:
+  cur=db.cursor();cur.execute("SELECT (SELECT COUNT_BIG(*) FROM dbo.Produto WITH(NOLOCK)),(SELECT COUNT_BIG(*) FROM dbo.Agrupamento WITH(NOLOCK))");counts=cur.fetchone()
+ return post(c,'catalog_sync_connection_test',product_count=int(counts[0]),group_count=int(counts[1]))
 def sync(c,mode='full',dry=False,request_id=None):
  products=rows(c);payload=[]
  for p in products:
@@ -51,11 +55,13 @@ def setup():
   v=input(f"{k} [{c[k]}]: ").strip();c[k]=int(v) if v and k in ('id_filial','interval_minutes') else (v or c[k])
  c['pwd']=getpass('Senha SQL somente leitura: ');c['sync_token']=getpass('Token do sincronizador: ');save(c);print('Configuração protegida pelo usuário do Windows.')
 def main():
- a=argparse.ArgumentParser();a.add_argument('--setup',action='store_true');a.add_argument('--once',action='store_true');a.add_argument('--dry-run',action='store_true');args=a.parse_args()
+ a=argparse.ArgumentParser();a.add_argument('--setup',action='store_true');a.add_argument('--once',action='store_true');a.add_argument('--dry-run',action='store_true');a.add_argument('--test-connection',action='store_true');args=a.parse_args()
  if args.setup:return setup()
  c=load()
  if args.dry_run:
   data=sync(c,dry=True);print(json.dumps({'count':len(data),'examples':data[:5]},ensure_ascii=False,default=str,indent=2));return
+ if args.test_connection:
+  print(json.dumps(test_connection(c),ensure_ascii=False));return
  next_periodic=0
  while True:
   try:logging.info('sync start');result=sync(c);logging.info('sync ok %s',result)
