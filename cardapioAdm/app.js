@@ -37,6 +37,23 @@ function openProductEditor(id){const p=(state.products||[]).find(x=>x.id===id),g
 document.addEventListener('click',e=>{const button=e.target.closest('[data-product-editor]');if(!button)return;e.preventDefault();e.stopImmediatePropagation();openProductEditor(button.dataset.productEditor)},true);
 $('productEditorForm').onsubmit=async e=>{e.preventDefault();const p=(state.products||[]).find(x=>x.id===editingProductId),g=(state.categories||[]).find(x=>x.id===p?.category_id),save=$('editorSave');save.disabled=true;save.textContent='Salvando...';$('editorMessage').textContent='';try{if(g)await api('update_category_editorial',{id:g.id,display_name:$('editorCategoryName').value,description:g.description||'',sort_order:Number(g.sort_order||0)});await api('update_product_editorial',{id:p.id,display_name:$('editorDisplayName').value,description:$('editorDescription').value,image_url:$('editorImage').value||null,sort_order:Number($('editorSort').value||0),featured:$('editorFeatured').checked});$('productEditor').close();await load()}catch(error){$('editorMessage').textContent=error.message}finally{save.disabled=false;save.textContent='Salvar alterações'}};
 document.querySelectorAll('.editor-close,.editor-cancel').forEach(button=>button.onclick=()=>$('productEditor').close());
+integration=function(){
+  const catalog=state.catalogStatus||{},connector=(catalog.connectors||[])[0],connected=!!connector?.connection_tested_at;
+  const lastSeen=connector?.last_seen_at?new Date(connector.last_seen_at).toLocaleString('pt-BR'):'Sem contato';
+  $('content').innerHTML=`<section class="card integration-panel">
+    <div class="toolbar"><div><small>INTEGRAÇÃO LOCAL</small><h2>Pedidos no Raffinato</h2></div><button id="refreshIntegration" class="ghost">Atualizar estado</button></div>
+    <p class="status ${connected?'ok':'bad'}"><b>${connected?'Conector vinculado e testado':'Conector aguardando validação'}</b><br>Instalação: ${esc(connector?.installation_name||'não identificada')} · último contato: ${esc(lastSeen)}</p>
+    <div class="integration-grid">
+      <article class="integration-box"><span class="step done">1</span><div><b>API Raffinato localizada</b><p>Rota oficial confirmada: <code>POST /integracao/recebepedidos</code>. A autenticação permanece protegida no conector local.</p></div></article>
+      <article class="integration-box"><span class="step ${connected?'done':'pending'}">2</span><div><b>Conector 1.7.20</b><p>${connected?'A instalação está vinculada. Confira se o computador da loja já executa a versão 1.7.20.':'Instale a versão 1.7.20 no servidor da loja e faça o teste de conexão.'}</p><a class="button-link" href="https://checkdiario.com.br/downloads/Conector-Raffinato-v1.7.20.exe">Baixar conector 1.7.20</a></div></article>
+      <article class="integration-box"><span class="step pending">3</span><div><b>Pedido controlado ainda não enviado</b><p>Prévia atual: produto 2777 · MESA 01 · cartão virtual 3 · garçom CardapioZuqui. Preço e disponibilidade serão relidos da API antes do envio.</p></div></article>
+    </div>
+    <section class="test current-test"><h3>Segurança do primeiro envio</h3><p>O site público continua impedido de lançar pedidos. O teste será liberado somente após o conector 1.7.20 confirmar a API local e gerar a prévia com dados reais. Timeout não provoca reenvio automático e sucesso exige <code>gravado: true</code>.</p><button disabled title="Aguardando confirmação do conector local">Enviar pedido de teste — bloqueado</button></section>
+    <label class="public-ordering"><input type="checkbox" disabled ${state.ordering_enabled?'checked':''}> Pedidos públicos ${state.ordering_enabled?'ativados':'permanecem desativados'}</label>
+    <p class="integration-note">A sincronização do catálogo é independente e continua disponível na aba Sincronização.</p>
+  </section>`;
+  $('refreshIntegration').onclick=()=>load();
+};
 $('loginForm').onsubmit=async e=>{e.preventDefault();try{const r=await api('login_v2',{username:$('username').value,password:$('password').value});token=r.access_token;refreshToken=r.refresh_token||'';localStorage.setItem('zuqui_admin_token',token);localStorage.setItem('zuqui_admin_refresh',refreshToken);$('loginView').hidden=true;if(r.must_change_password)$('changeView').hidden=false;else await load()}catch(x){$('loginMsg').textContent=x.message}};
 $('logout').onclick=()=>{token='';refreshToken='';localStorage.removeItem('zuqui_admin_token');localStorage.removeItem('zuqui_admin_refresh');location.reload()};
 if(token)load().catch(async()=>{if(await refreshSession())return load();token='';refreshToken='';localStorage.removeItem('zuqui_admin_token');localStorage.removeItem('zuqui_admin_refresh')});
