@@ -1,0 +1,4 @@
+project_id = "pcmqxbwxpzskkyjmtmrv"
+
+[functions.cardapio-api]
+verify_jwt = false
