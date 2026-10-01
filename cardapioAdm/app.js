@@ -90,3 +90,17 @@ async function restoreAdminSession(){
   token='';refreshToken='';localStorage.removeItem('zuqui_admin_token');localStorage.removeItem('zuqui_admin_refresh');$('loginView').hidden=false;
 }
 restoreAdminSession();
+
+// Fila operacional dos chamados feitos pelo cliente no cardápio.
+const integrationTab=document.querySelector('[data-tab="integration"]');
+if(integrationTab&&!document.querySelector('[data-tab="service"]'))integrationTab.insertAdjacentHTML('beforebegin','<button data-tab="service">Atendimentos</button>');
+const renderWithoutService=render;
+render=function(){if(tab==='service')return renderServiceRequests();return renderWithoutService()};
+async function renderServiceRequests(){
+  $('content').innerHTML='<section class="card"><div class="toolbar"><h2>Chamados das mesas</h2><button id="refreshService">Atualizar</button></div><p class="status">Os chamados aparecem aqui; a API Raffinato de pedidos não documenta impressão para esta função.</p><div id="serviceList" class="grid"><p>Carregando…</p></div></section>';
+  const response=await api('admin_service_requests'),requests=response.requests||[],open=requests.filter(x=>x.status==='pending');
+  $('serviceList').innerHTML=requests.map(x=>`<article class="item ${x.status==='pending'?'enabled':'disabled'}"><div><b>${esc(x.request_type)} · Comanda ${esc(x.card_label)}</b><p>${esc(x.reference_name||'Mesa não informada')} · ${new Date(x.created_at).toLocaleString('pt-BR')}<br>${x.status==='pending'?'Aguardando atendimento':'Resolvido'}</p></div><div class="actions">${x.status==='pending'?`<button data-resolve-service="${x.id}">Marcar atendido</button>`:''}</div></article>`).join('')||'<p>Nenhum chamado recebido.</p>';
+  $('refreshService').onclick=renderServiceRequests;
+  document.querySelectorAll('[data-resolve-service]').forEach(button=>button.onclick=async()=>{button.disabled=true;await api('admin_service_requests',{resolve_id:button.dataset.resolveService});await renderServiceRequests()});
+  const tabButton=document.querySelector('[data-tab="service"]');if(tabButton&&open.length)tabButton.textContent=`Atendimentos (${open.length})`;
+}
