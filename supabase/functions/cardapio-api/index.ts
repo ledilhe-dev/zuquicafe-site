@@ -26,6 +26,55 @@ Deno.serve(async (req) => {
     body = await req.json().catch(() => ({})),
     action = String(body.action || "");
   try {
+    if (action === "connector_dispatch_bootstrap") {
+      const instanceId = String(body.connector_instance_id || "").trim(),
+        credential = String(body.credential || "").trim(),
+        expectedCompany = Deno.env.get("CHECKDIARIO_EMPRESA_ID") || "";
+      if (!/^[0-9a-f-]{36}$/i.test(instanceId) || credential.length < 40)
+        return out({ error: "Identidade do conector inválida." }, 401);
+      const checkdiario = createClient(
+          Deno.env.get("CHECKDIARIO_URL")!,
+          Deno.env.get("CHECKDIARIO_SERVICE_ROLE_KEY")!,
+          { auth: { persistSession: false } },
+        ),
+        { data: trusted } = await checkdiario
+          .from("raffinato_connector_instances")
+          .select("id,empresa_id,status")
+          .eq("id", instanceId)
+          .eq("empresa_id", expectedCompany)
+          .eq("credencial_hash", await sha256(credential))
+          .neq("status", "revogado")
+          .maybeSingle();
+      if (!trusted)
+        return out({ error: "Conector não autorizado para esta loja." }, 403);
+      const { data: connector } = await db
+        .from("menu_catalog_connectors")
+        .select("id,store_key,raffinato_branch_id")
+        .eq("active", true)
+        .limit(1)
+        .single();
+      if (!connector)
+        return out({ error: "Vínculo do cardápio não encontrado." }, 409);
+      const rawToken = Array.from(crypto.getRandomValues(new Uint8Array(48)))
+        .map((value) => value.toString(16).padStart(2, "0"))
+        .join("");
+      const { error: updateError } = await db
+        .from("menu_catalog_connectors")
+        .update({
+          installation_id: instanceId,
+          installation_name: "Servidor da loja",
+          token_hash: await sha256(rawToken),
+          last_seen_at: new Date().toISOString(),
+        })
+        .eq("id", connector.id);
+      if (updateError) throw updateError;
+      return out({
+        backend_url: `${url}/functions/v1/cardapio-api`,
+        sync_token: rawToken,
+        id_filial: Number(connector.raffinato_branch_id),
+        store_key: connector.store_key,
+      });
+    }
     if (action === "admin_service_requests") {
       const bearer = req.headers
         .get("authorization")
@@ -239,7 +288,7 @@ Deno.serve(async (req) => {
       }
       if (action === "catalog_sync_order_pending") {
         const dispatcherVersion = String(body.connector_version || "");
-        const preferredDispatcher = ["2.0.9", "2.0.10"].includes(
+        const preferredDispatcher = ["2.0.9", "2.0.10", "2.0.11"].includes(
           dispatcherVersion,
         );
         if (preferredDispatcher) {
@@ -258,7 +307,7 @@ Deno.serve(async (req) => {
             .eq("source_branch_id", branchId)
             .gte("last_seen_at", cutoff)
             .maybeSingle();
-          if (["2.0.9", "2.0.10"].includes(activeDispatcher?.connector_version))
+          if (["2.0.9", "2.0.10", "2.0.11"].includes(activeDispatcher?.connector_version))
             return out({ order: null, delegated_to: activeDispatcher.connector_version });
         }
         const staleCutoff = new Date(Date.now() - 55_000).toISOString();

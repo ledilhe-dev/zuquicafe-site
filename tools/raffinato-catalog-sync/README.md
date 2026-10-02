@@ -1,6 +1,6 @@
 # Sincronizador do catálogo Raffinato
 
-Versão do conector do cardápio: **2.0.10**. Esta versão unifica a credencial protegida da API com o despachante, publica presença renovável e impede novos pedidos quando o envio local não estiver realmente ativo.
+Versão do conector do cardápio: **2.0.11**. Esta versão autoriza automaticamente o despachante pela identidade protegida da instalação e não depende mais do arquivo legado `catalog-sync.dat` para enviar pedidos.
 
 Serviço Windows separado do CheckDiário. O SQL Server é acessado somente na rede da loja, a credencial local é protegida por DPAPI e o envio ao site usa HTTPS de saída com token próprio. Dados e permissões não são misturados com o CheckDiário.
 
