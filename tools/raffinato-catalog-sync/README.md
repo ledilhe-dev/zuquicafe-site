@@ -1,6 +1,6 @@
 # Sincronizador do catálogo Raffinato
 
-Versão do conector do cardápio: **2.0.3**. Esta versão é obrigatória para enviar a observação no item correto do pedido.
+Versão do conector do cardápio: **2.0.4**. Esta versão envia a observação no objeto completo do item e corrige o horário local do pedido.
 
 Serviço Windows separado do CheckDiário. O SQL Server é acessado somente na rede da loja, a credencial local é protegida por DPAPI e o envio ao site usa HTTPS de saída com token próprio. Dados e permissões não são misturados com o CheckDiário.
 

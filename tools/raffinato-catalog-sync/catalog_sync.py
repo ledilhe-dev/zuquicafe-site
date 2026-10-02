@@ -1,13 +1,13 @@
 from __future__ import annotations
 import argparse,base64,ctypes,hashlib,json,logging,os,sys,time,uuid
 from ctypes import wintypes
-from datetime import datetime,timezone
+from datetime import datetime,timedelta,timezone
 from pathlib import Path
 import pyodbc,requests
 
-BASE=Path(__file__).resolve().parent; CONFIG=BASE/'catalog-sync.dat'; LOG=BASE/'catalog-sync.log'
+BASE=Path(sys.executable).resolve().parent if getattr(sys,'frozen',False) else Path(__file__).resolve().parent; CONFIG=BASE/'catalog-sync.dat'; LOG=BASE/'catalog-sync.log'
 logging.basicConfig(filename=LOG,level=logging.INFO,format='%(asctime)s %(levelname)s %(message)s',encoding='utf-8')
-CONNECTOR_VERSION='2.0.3'
+CONNECTOR_VERSION='2.0.4'
 SQL="""SELECT P.Id idproduto,LTRIM(RTRIM(P.Nome)) nome,LTRIM(RTRIM(P.NomeReduzido)) nomereduzido,
 CAST(PP.Valor AS decimal(12,2)) preco,NULLIF(LTRIM(RTRIM(P.CodigoBarra)),'') codigobarra,
 U.Sigla unidade,CAST(ISNULL(U.PermiteFracao,0) AS bit) permite_fracao,A.Id idcategoria,
@@ -40,11 +40,11 @@ def test_connection(c):
   cur=db.cursor();cur.execute("SELECT (SELECT COUNT_BIG(*) FROM dbo.Produto WITH(NOLOCK)),(SELECT COUNT_BIG(*) FROM dbo.Agrupamento WITH(NOLOCK))");counts=cur.fetchone()
  return post(c,'catalog_sync_connection_test',product_count=int(counts[0]),group_count=int(counts[1]))
 def build_order_payload(source,now=None):
- now=now or datetime.now().astimezone().replace(microsecond=0).isoformat();guid=source['guid']
+ now=now or datetime.now(timezone(timedelta(hours=-3))).replace(tzinfo=None,microsecond=0).isoformat();guid=source['guid']
  integration_guid=str(uuid.uuid5(uuid.NAMESPACE_URL,'zuqui-order:'+guid));items=[]
  for item in source['items']:
   quantity=float(item['quantity']);price=float(item['unit_price']);observation=str(item.get('observation') or item.get('observacao') or '').strip()[:200]
-  items.append({'idproduto':int(item['raffinato_product_id']),'idgarcom':int(source['waiter_id']),'quantidade':quantity,'valorunitario':price,'valorvariacao':-1,'valortotal':round(quantity*price,2),'observacao':observation,'datahora':now,'identificadorintegracao':integration_guid,'porcoespadrao':[]})
+  items.append({'idproduto':int(item['raffinato_product_id']),'nomereduzido':str(item.get('name') or ''),'valor':price,'valorvariacao':None,'arvore':item.get('category_tree'),'unidademedida':str(item.get('unit') or 'UN'),'codigobarra':item.get('barcode'),'observacao':observation,'permitevendafracionada':bool(item.get('allows_fractional',False)),'idgarcom':int(source['waiter_id']),'quantidade':quantity,'valorunitario':price,'valortotal':round(quantity*price,2),'datahora':now,'identificadorintegracao':integration_guid,'porcoespadrao':[]})
  return {'isOldOrder':False,'identificador':guid,'idgarcom':int(source['waiter_id']),'setorimpressao':int(source['print_sector_id']),'pedido':{'datahora':now,'nomereferencia':source['reference'],'ocupantes':1,'identificadorpedidointegracao':integration_guid,'observacao':'','itens':items},'cartaoconsumo':{'nomecliente':str(source['card_code']),'codigovirtual':str(source['card_code'])}}
 def dispatch_order(c):
  if not c.get('raffinato_api_url') or not c.get('raffinato_api_auth'):

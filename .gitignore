@@ -3,3 +3,4 @@ tools/raffinato-catalog-sync/catalog-sync.log
 supabase/.temp/
 __pycache__/
 *.pyc
+tools/raffinato-catalog-sync/.build-*/

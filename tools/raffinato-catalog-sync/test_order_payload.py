@@ -15,10 +15,13 @@ spec.loader.exec_module(catalog_sync)
 class OrderPayloadTests(unittest.TestCase):
     def test_keeps_each_observation_on_its_own_raffinato_item(self):
         source = {'guid':'4cb26087-b330-4a1f-870c-e4cb122602e3','waiter_id':20,'reference':'MESA 01','print_sector_id':7,'card_code':'24','items':[
-            {'raffinato_product_id':101,'quantity':1,'unit_price':3.99,'observation':'SEM GELO'},
-            {'raffinato_product_id':202,'quantity':1,'unit_price':7.50,'observation':'SEM CEBOLA'}]}
-        payload = catalog_sync.build_order_payload(source,'2026-10-01T22:00:00-03:00')
+            {'raffinato_product_id':101,'name':'COCA COLA','quantity':1,'unit_price':3.99,'observation':'SEM GELO','category_tree':'2.08','unit':'UN','barcode':'7891'},
+            {'raffinato_product_id':202,'name':'PASTEL','quantity':1,'unit_price':7.50,'observation':'SEM CEBOLA','category_tree':'1.17','unit':'UN','barcode':None}]}
+        payload = catalog_sync.build_order_payload(source,'2026-10-01T22:00:00')
         self.assertEqual([item['observacao'] for item in payload['pedido']['itens']],['SEM GELO','SEM CEBOLA'])
+        self.assertEqual(payload['pedido']['itens'][0]['nomereduzido'],'COCA COLA')
+        self.assertEqual(payload['pedido']['itens'][0]['arvore'],'2.08')
+        self.assertEqual(payload['pedido']['itens'][0]['unidademedida'],'UN')
         self.assertEqual(payload['pedido']['observacao'],'')
         self.assertEqual(payload['setorimpressao'],7)
 
@@ -28,6 +31,11 @@ class OrderPayloadTests(unittest.TestCase):
             {'raffinato_product_id':202,'quantity':1,'unit_price':7.50,'observation':None}]}
         items = catalog_sync.build_order_payload(source,'2026-10-01T22:00:00-03:00')['pedido']['itens']
         self.assertEqual([item['observacao'] for item in items],['SEM GELO',''])
+
+    def test_generates_raffinato_local_time_without_utc_offset(self):
+        source = {'guid':'51f27909-955d-4705-b0d3-b750992c5e27','waiter_id':20,'reference':'MESA 01','print_sector_id':3,'card_code':'24','items':[{'raffinato_product_id':101,'quantity':1,'unit_price':3.99}]}
+        value = catalog_sync.build_order_payload(source)['pedido']['datahora']
+        self.assertRegex(value,r'^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$')
 
 
 if __name__ == '__main__':
