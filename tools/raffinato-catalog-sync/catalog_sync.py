@@ -45,7 +45,7 @@ def build_order_payload(source,now=None):
  for item in source['items']:
   quantity=float(item['quantity']);price=float(item['unit_price']);observation=str(item.get('observation') or item.get('observacao') or '').strip()[:200]
   items.append({'idproduto':int(item['raffinato_product_id']),'idgarcom':int(source['waiter_id']),'quantidade':quantity,'valorunitario':price,'valorvariacao':-1,'valortotal':round(quantity*price,2),'observacao':observation,'datahora':now,'identificadorintegracao':integration_guid,'porcoespadrao':[]})
- return {'isOldOrder':False,'identificador':guid,'idgarcom':int(source['waiter_id']),'setorimpressao':'Nenhum','pedido':{'datahora':now,'nomereferencia':source['reference'],'ocupantes':1,'identificadorpedidointegracao':integration_guid,'observacao':'','itens':items},'cartaoconsumo':{'nomecliente':str(source['card_code']),'codigovirtual':str(source['card_code'])}}
+ return {'isOldOrder':False,'identificador':guid,'idgarcom':int(source['waiter_id']),'setorimpressao':int(source['print_sector_id']),'pedido':{'datahora':now,'nomereferencia':source['reference'],'ocupantes':1,'identificadorpedidointegracao':integration_guid,'observacao':'','itens':items},'cartaoconsumo':{'nomecliente':str(source['card_code']),'codigovirtual':str(source['card_code'])}}
 def dispatch_order(c):
  if not c.get('raffinato_api_url') or not c.get('raffinato_api_auth'):
   return False
