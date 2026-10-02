@@ -1275,7 +1275,17 @@ Deno.serve(async (req) => {
       if (error) throw error;
       const { error: itemError } = await db
         .from("menu_order_items")
-        .insert(items.map((x: any) => ({ ...x, order_id: o.id })));
+        .insert(
+          items.map((x: any) => ({
+            order_id: o.id,
+            product_id: x.product_id,
+            raffinato_product_id: x.raffinato_product_id,
+            name: x.name,
+            quantity: x.quantity,
+            unit_price: x.unit_price,
+            observation: x.observation,
+          })),
+        );
       if (itemError) throw itemError;
       await db
         .from("menu_card_claims")
