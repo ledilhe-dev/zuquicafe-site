@@ -288,7 +288,7 @@ Deno.serve(async (req) => {
       }
       if (action === "catalog_sync_order_pending") {
         const dispatcherVersion = String(body.connector_version || "");
-        const preferredDispatcher = ["2.0.9", "2.0.10", "2.0.11"].includes(
+        const preferredDispatcher = ["2.0.9", "2.0.10", "2.0.11", "2.0.12"].includes(
           dispatcherVersion,
         );
         if (preferredDispatcher) {
@@ -307,7 +307,7 @@ Deno.serve(async (req) => {
             .eq("source_branch_id", branchId)
             .gte("last_seen_at", cutoff)
             .maybeSingle();
-          if (["2.0.9", "2.0.10", "2.0.11"].includes(activeDispatcher?.connector_version))
+          if (["2.0.9", "2.0.10", "2.0.11", "2.0.12"].includes(activeDispatcher?.connector_version))
             return out({ order: null, delegated_to: activeDispatcher.connector_version });
         }
         const staleCutoff = new Date(Date.now() - 55_000).toISOString();
