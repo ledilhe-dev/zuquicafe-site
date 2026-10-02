@@ -258,6 +258,16 @@ Deno.serve(async (req) => {
           if (activeDispatcher?.connector_version === "2.0.9")
             return out({ order: null, delegated_to: "2.0.9" });
         }
+        const staleCutoff = new Date(Date.now() - 55_000).toISOString();
+        await db.from("menu_orders").update({
+          status: "failed",
+          error_message: "Conector local indisponível. O pedido não foi enviado.",
+          sent_at: new Date().toISOString(),
+        })
+          .eq("store_key", storeKey)
+          .eq("source_branch_id", branchId)
+          .eq("status", "pending_integration")
+          .lt("created_at", staleCutoff);
         const { data: q } = await db
           .from("menu_orders")
           .select(
@@ -1224,7 +1234,13 @@ Deno.serve(async (req) => {
           { error: "Um produto ficou indisponível. Atualize o cardápio." },
           409,
         );
-      const guid = crypto.randomUUID(),
+      const requestedTotals = requested.reduce((totals: Map<string, number>, item: any) => {
+          const productId = String(item.product_id || ""),
+            quantity = Math.floor(Number(item.quantity));
+          totals.set(productId, (totals.get(productId) || 0) + quantity);
+          return totals;
+        }, new Map<string, number>()),
+        guid = crypto.randomUUID(),
         receipt = crypto.randomUUID() + crypto.randomUUID(),
         items = requested.map((x: any) => {
           const p = products.find((v: any) => v.id === x.product_id),
@@ -1237,7 +1253,14 @@ Deno.serve(async (req) => {
             configuredOptions = Array.isArray(p?.observation_options)
               ? p.observation_options
               : [];
-          if (!p || !Number.isFinite(q) || q < minimum || q > maximum)
+          const productTotal = requestedTotals.get(String(x.product_id)) || 0;
+          if (
+            !p ||
+            !Number.isFinite(q) ||
+            q <= 0 ||
+            productTotal < minimum ||
+            productTotal > maximum
+          )
             throw new Error(
               `Quantidade de ${p?.display_name || p?.source_name || p?.name || "produto"} deve ficar entre ${minimum} e ${maximum}.`,
             );
@@ -1323,11 +1346,24 @@ Deno.serve(async (req) => {
       if (!receipt) return out({ error: "Comprovante inválido." }, 400);
       const { data: o } = await db
         .from("menu_orders")
-        .select("guid,status,card_label,idvenda,numeropedido,error_message")
+        .select("guid,status,card_label,idvenda,numeropedido,error_message,created_at")
         .eq("guid", body.guid)
         .eq("receipt_token_hash", await sha256(receipt))
         .single();
       if (!o) return out({ error: "Pedido não encontrado." }, 404);
+      if (
+        o.status === "pending_integration" &&
+        Date.now() - new Date(o.created_at).getTime() > 55_000
+      ) {
+        const errorMessage =
+          "Conector local indisponível. O pedido não foi enviado.";
+        await db.from("menu_orders").update({
+          status: "failed",
+          error_message: errorMessage,
+          sent_at: new Date().toISOString(),
+        }).eq("guid", body.guid).eq("status", "pending_integration");
+        return out({ ...o, status: "failed", error_message: errorMessage });
+      }
       return out(o);
     }
     if (action === "test_order") {
