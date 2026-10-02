@@ -151,7 +151,7 @@ Deno.serve(async (req) => {
       return out({ ok: true, already_open: false, delivery: "admin_queue" });
     }
     if (action === "login_v2") {
-      if (String(body.username).toLowerCase() !== "admin")
+      if (String(body.username).trim().toLowerCase() !== "admin")
         return out({ error: "Credenciais invalidas" }, 401);
       const auth = createClient(url, anon, { auth: { persistSession: false } }),
         email = Deno.env.get("CARDAPIO_ADMIN_EMAIL");
@@ -239,7 +239,10 @@ Deno.serve(async (req) => {
       }
       if (action === "catalog_sync_order_pending") {
         const dispatcherVersion = String(body.connector_version || "");
-        if (dispatcherVersion === "2.0.9") {
+        const preferredDispatcher = ["2.0.9", "2.0.10"].includes(
+          dispatcherVersion,
+        );
+        if (preferredDispatcher) {
           await db.from("menu_dispatcher_leases").upsert({
             store_key: storeKey,
             source_branch_id: branchId,
@@ -255,8 +258,8 @@ Deno.serve(async (req) => {
             .eq("source_branch_id", branchId)
             .gte("last_seen_at", cutoff)
             .maybeSingle();
-          if (activeDispatcher?.connector_version === "2.0.9")
-            return out({ order: null, delegated_to: "2.0.9" });
+          if (["2.0.9", "2.0.10"].includes(activeDispatcher?.connector_version))
+            return out({ order: null, delegated_to: activeDispatcher.connector_version });
         }
         const staleCutoff = new Date(Date.now() - 55_000).toISOString();
         await db.from("menu_orders").update({
@@ -577,7 +580,7 @@ Deno.serve(async (req) => {
       });
     }
     if (action === "login") {
-      if (String(body.username).toLowerCase() !== "admin")
+      if (String(body.username).trim().toLowerCase() !== "admin")
         return out({ error: "Credenciais inválidas" }, 401);
       const auth = createClient(url, anon, { auth: { persistSession: false } }),
         email = Deno.env.get("CARDAPIO_ADMIN_EMAIL");
@@ -1193,6 +1196,22 @@ Deno.serve(async (req) => {
         .single();
       if (!connector?.connection_tested_at)
         return out({ error: "Conector da loja indisponível." }, 503);
+      const dispatcherCutoff = new Date(Date.now() - 15_000).toISOString(),
+        { data: dispatcher } = await db
+          .from("menu_dispatcher_leases")
+          .select("connector_version,last_seen_at")
+          .eq("store_key", connector.store_key)
+          .eq("source_branch_id", connector.raffinato_branch_id)
+          .gte("last_seen_at", dispatcherCutoff)
+          .maybeSingle();
+      if (!dispatcher)
+        return out(
+          {
+            error:
+              "Envio ao Raffinato temporariamente indisponível. O pedido não foi criado; avise um atendente.",
+          },
+          503,
+        );
       const claim = String(body.card_claim || ""),
         { data: c } = await db
           .from("menu_card_claims")
