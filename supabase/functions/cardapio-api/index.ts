@@ -238,8 +238,26 @@ Deno.serve(async (req) => {
         return out({ request_id: q?.id || null });
       }
       if (action === "catalog_sync_order_pending") {
-        if (String(body.connector_version || "") !== "2.0.8")
-          return out({ order: null, upgrade_required: "2.0.8" });
+        const dispatcherVersion = String(body.connector_version || "");
+        if (dispatcherVersion === "2.0.9") {
+          await db.from("menu_dispatcher_leases").upsert({
+            store_key: storeKey,
+            source_branch_id: branchId,
+            connector_version: dispatcherVersion,
+            last_seen_at: new Date().toISOString(),
+          });
+        } else {
+          const cutoff = new Date(Date.now() - 15_000).toISOString();
+          const { data: activeDispatcher } = await db
+            .from("menu_dispatcher_leases")
+            .select("connector_version")
+            .eq("store_key", storeKey)
+            .eq("source_branch_id", branchId)
+            .gte("last_seen_at", cutoff)
+            .maybeSingle();
+          if (activeDispatcher?.connector_version === "2.0.9")
+            return out({ order: null, delegated_to: "2.0.9" });
+        }
         const { data: q } = await db
           .from("menu_orders")
           .select(
