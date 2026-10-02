@@ -7,3 +7,13 @@
 .item-note-choices{display:grid;gap:10px;margin-bottom:16px}.item-note-choice{display:block}.item-note-choice input{position:absolute;opacity:0;pointer-events:none}.item-note-choice span{display:block;padding:14px 16px;border:2px solid var(--line);border-radius:12px;background:#fff;font-weight:800;cursor:pointer}.item-note-choice input:checked+span{border-color:var(--green);color:var(--green);background:#e4f2e8}.item-note-dialog .message{min-height:20px;margin:6px 0;color:#b42318;font-weight:800}
 .inline-options{grid-column:1/-1;min-width:0;margin:5px 0 1px;padding:0;border:0}.inline-options legend{margin-bottom:7px;color:var(--green);font-size:12px;font-weight:900}.inline-options-list{display:flex;flex-wrap:wrap;gap:7px}.inline-option{min-height:36px;padding:7px 11px;border:1px solid #bdcbc1;border-radius:10px;color:var(--green);background:#fff;font-size:12px;font-weight:850}.inline-option.selected{border-color:var(--green);color:#fff;background:var(--green)}.inline-option.optional-clear{color:var(--muted)}
 .inline-options.required legend{color:#b42318;font-size:15px;font-weight:950}
+
+/* Ações principais sempre claras, inclusive no celular. */
+.topbar-actions{align-items:center;gap:10px;padding:10px max(18px,calc((100% - 1180px)/2)) 10px 12px}
+.top-action{justify-content:center;min-height:44px;padding:0 18px;border:1px solid #bfd0c4;border-radius:12px;box-shadow:0 3px 10px rgba(29,51,37,.06);font-weight:800}
+.top-action span{width:8px;height:8px;overflow:hidden;flex:0 0 8px;border-radius:50%;color:transparent;background:var(--green);font-size:0}
+.top-action:disabled{box-shadow:none}
+.top-action:disabled span{background:#9da49f}
+.top-action:not(:disabled):hover{border-color:var(--green)}
+.top-action:not(:disabled):hover span{background:#fff}
+@media(max-width:700px){.topbar{min-height:70px;padding-left:8px}.brand img{width:60px}.topbar-actions{gap:6px;padding:8px}.top-action{width:auto;min-height:46px;padding:0 10px;border-radius:10px;font-size:12px;line-height:1.1}.top-action b{position:static;width:auto;height:auto;overflow:visible;clip-path:none}.top-action span{display:block;width:7px;height:7px;flex-basis:7px}}
