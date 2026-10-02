@@ -1,1 +1,1 @@
-1ed695cb8359d401334331f42a109df9c304d33b31c882e720a9b522cf7ff1ef  Conector-Raffinato-v2.0.9.exe
+840c37c1096c34f72afaa06b28e31cb2e05a7bd977952bfd13daebc64af26650  Conector-Raffinato-v2.0.9.exe
