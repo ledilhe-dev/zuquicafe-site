@@ -196,16 +196,17 @@
             ></textarea>
           </label>
           <div class="wide rule-box">
-            <label
-              >Observação inicial do item<textarea
-                id="editorDefaultObservation"
-                rows="2"
-                maxlength="200"
-                placeholder="Ex.: Escolha: café passado ou café com leite"
-              ></textarea></label
-            ><label class="editor-check"
+            <div class="observation-options-editor">
+              <span>Opções de escolha do item</span>
+              <div id="editorObservationOptions"></div>
+              <button id="addObservationOption" type="button" class="ghost">
+                + Adicionar opção
+              </button>
+              <input id="editorDefaultObservation" type="hidden" />
+            </div>
+            <label class="editor-check"
               ><input id="editorObservationRequired" type="checkbox" /> Cliente
-              deve confirmar/preencher a observação</label
+              deve escolher uma opção</label
             >
           </div>
           <label
@@ -368,6 +369,30 @@
         border: 1px solid #dfe6df;
         border-radius: 14px;
         background: #f7faf6;
+      }
+      .observation-options-editor {
+        display: grid;
+        gap: 9px;
+      }
+      .observation-options-editor > span {
+        font-weight: 700;
+      }
+      #editorObservationOptions {
+        display: grid;
+        gap: 7px;
+      }
+      .observation-option-row {
+        display: grid;
+        grid-template-columns: 1fr 42px;
+        gap: 7px;
+      }
+      .observation-option-row button {
+        border: 1px solid #d8dfd8;
+        border-radius: 10px;
+        background: #fff;
+        color: #a52d2d;
+        font-size: 20px;
+        cursor: pointer;
       }
       .image-editor {
         display: grid;
@@ -643,6 +668,6 @@
       }
     </style>
     <script src="../cardapio-config.js?v=20261001-19"></script>
-    <script type="module" src="./app.js?v=20261001-19"></script>
+    <script type="module" src="./app.js?v=20261001-20"></script>
   </body>
 </html>
