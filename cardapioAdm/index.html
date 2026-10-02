@@ -137,6 +137,27 @@
         ><button onclick="this.closest('dialog').close()">Fechar</button>
       </div>
     </dialog>
+    <dialog id="referenceEditor" class="editor-dialog reference-dialog">
+      <form id="referenceEditorForm">
+        <div class="editor-head">
+          <div>
+            <small>CONFIGURAÇÃO DA MESA</small>
+            <h2 id="referenceEditorTitle">Editar mesa</h2>
+          </div>
+          <button type="button" class="reference-editor-close ghost" aria-label="Fechar">×</button>
+        </div>
+        <div class="editor-grid">
+          <label>Nome ou número da mesa<input id="referenceName" maxlength="100" required placeholder="Ex.: MESA 01" /></label>
+          <label>ID do setor de impressão<input id="referencePrintSector" type="number" min="1" step="1" required placeholder="Ex.: 3" /></label>
+          <p class="wide status">Use o ID criado no Raffinato em Vendas → Configuração → Setor de Impressão.</p>
+        </div>
+        <p id="referenceEditorMessage" class="editor-message"></p>
+        <div class="editor-actions">
+          <button type="button" class="ghost reference-editor-cancel">Cancelar</button>
+          <button id="referenceEditorSave" type="submit">Salvar mesa</button>
+        </div>
+      </form>
+    </dialog>
     <dialog id="productEditor" class="editor-dialog">
       <form id="productEditorForm">
         <div class="editor-head">
@@ -621,7 +642,7 @@
         }
       }
     </style>
-    <script src="../cardapio-config.js?v=20261001-18"></script>
-    <script type="module" src="./app.js?v=20261001-18"></script>
+    <script src="../cardapio-config.js?v=20261001-19"></script>
+    <script type="module" src="./app.js?v=20261001-19"></script>
   </body>
 </html>
