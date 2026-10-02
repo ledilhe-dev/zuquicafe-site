@@ -238,6 +238,8 @@ Deno.serve(async (req) => {
         return out({ request_id: q?.id || null });
       }
       if (action === "catalog_sync_order_pending") {
+        if (String(body.connector_version || "") !== "2.0.8")
+          return out({ order: null, upgrade_required: "2.0.8" });
         const { data: q } = await db
           .from("menu_orders")
           .select(
