@@ -48,8 +48,8 @@ def dispatch_order(c):
  items=[]
  for item in source['items']:
   quantity=float(item['quantity']);price=float(item['unit_price'])
-  items.append({'idproduto':int(item['raffinato_product_id']),'idgarcom':int(source['waiter_id']),'quantidade':quantity,'valorunitario':price,'valorvariacao':-1,'valortotal':round(quantity*price,2),'observacao':source.get('note',''),'datahora':now,'identificadorintegracao':integration_guid,'porcoespadrao':[]})
- payload={'isOldOrder':False,'identificador':guid,'idgarcom':int(source['waiter_id']),'setorimpressao':'Nenhum','pedido':{'datahora':now,'nomereferencia':source['reference'],'ocupantes':1,'identificadorpedidointegracao':integration_guid,'observacao':source.get('note',''),'itens':items},'cartaoconsumo':{'nomecliente':str(source['card_code']),'codigovirtual':str(source['card_code'])}}
+  items.append({'idproduto':int(item['raffinato_product_id']),'idgarcom':int(source['waiter_id']),'quantidade':quantity,'valorunitario':price,'valorvariacao':-1,'valortotal':round(quantity*price,2),'observacao':str(item.get('observation',''))[:200],'datahora':now,'identificadorintegracao':integration_guid,'porcoespadrao':[]})
+ payload={'isOldOrder':False,'identificador':guid,'idgarcom':int(source['waiter_id']),'setorimpressao':'Nenhum','pedido':{'datahora':now,'nomereferencia':source['reference'],'ocupantes':1,'identificadorpedidointegracao':integration_guid,'observacao':'','itens':items},'cartaoconsumo':{'nomecliente':str(source['card_code']),'codigovirtual':str(source['card_code'])}}
  endpoint=c['raffinato_api_url'].rstrip('/')+'/integracao/recebepedidos'
  try:
   response=requests.post(endpoint,headers={'Authorization':c['raffinato_api_auth'],'Content-Type':'application/json'},json=payload,timeout=20)
