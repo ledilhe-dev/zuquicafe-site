@@ -122,6 +122,7 @@
         </header>
         <nav id="tabs">
           <button data-tab="products" class="active">Produtos</button
+          ><button data-tab="banners">Destaques</button
           ><button data-tab="sync">Sincronização</button
           ><button data-tab="cards">Comandas</button
           ><button data-tab="references">Referências</button
@@ -172,6 +173,7 @@
           <label>Nome original no Raffinato<input id="categorySourceName" readonly /></label>
           <label>ID do grupo<input id="categoryRaffinatoId" readonly /></label>
           <label class="wide">Nome no Cardápio para o cliente<input id="categoryDisplayName" maxlength="100" required placeholder="Digite o nome que o cliente verá" /></label>
+          <label class="wide">Ordem do agrupamento<input id="categorySortOrder" type="number" min="0" step="1" required /><small>Menores números aparecem primeiro no cardápio.</small></label>
         </div>
         <p id="categoryEditorMessage" class="editor-message"></p>
         <div class="editor-actions">
@@ -721,6 +723,6 @@
       }
     </style>
     <script src="../cardapio-config.js?v=20261001-19"></script>
-    <script type="module" src="./app.js?v=20261008-2315"></script>
+    <script type="module" src="./app.js?v=20261008-2355"></script>
   </body>
 </html>

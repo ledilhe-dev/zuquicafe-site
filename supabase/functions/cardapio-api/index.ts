@@ -588,6 +588,12 @@ Deno.serve(async (req) => {
         .eq("available", true)
         .eq("digital_enabled", true)
         .order("sort_order");
+      const { data: banners } = await db
+        .from("menu_banners")
+        .select("id,title,alt_text,image_url,sort_order")
+        .eq("available", true)
+        .order("sort_order")
+        .order("created_at");
       const categoryIds = (categories || []).map((x: any) => x.id);
       let rawProducts: any[] = [];
       if (categoryIds.length) {
@@ -623,6 +629,7 @@ Deno.serve(async (req) => {
       return out({
         categories,
         products,
+        banners: banners || [],
         cards,
         references,
         ordering_enabled: !!settings?.ordering_enabled,
@@ -693,6 +700,7 @@ Deno.serve(async (req) => {
       const names = [
           "categories",
           "products",
+          "banners",
           "cards",
           "references",
           "orders",
@@ -704,6 +712,8 @@ Deno.serve(async (req) => {
             ? "menu_categories"
             : n === "products"
               ? "menu_products"
+              : n === "banners"
+                ? "menu_banners"
               : n === "cards"
                 ? "menu_cards"
                 : n === "references"
@@ -949,6 +959,31 @@ Deno.serve(async (req) => {
         .from("menu-product-images")
         .getPublicUrl(path);
       return out({ ok: true, image_url: publicData.publicUrl });
+    }
+    if (action === "upload_banner_image") {
+      const base64 = String(body.data_base64 || "").replace(/^data:[^;]+;base64,/, "");
+      if (!base64) return out({ error: "A imagem é obrigatória." }, 400);
+      if (base64.length > 4_300_000) return out({ error: "A imagem excede 3 MB." }, 413);
+      let bytes: Uint8Array;
+      try { const binary = atob(base64); bytes = Uint8Array.from(binary, (c) => c.charCodeAt(0)); }
+      catch { return out({ error: "Arquivo de imagem inválido." }, 400); }
+      const path = `banners/${crypto.randomUUID()}.webp`, { error } = await db.storage.from("menu-product-images").upload(path, bytes, { contentType: "image/webp", cacheControl: "31536000", upsert: false });
+      if (error) throw error;
+      const { data: publicData } = db.storage.from("menu-product-images").getPublicUrl(path);
+      return out({ ok: true, image_url: publicData.publicUrl });
+    }
+    if (action === "upsert_banner") {
+      const row = { title: String(body.title || "").slice(0, 140), alt_text: String(body.alt_text || body.title || "").slice(0, 200), image_url: String(body.image_url || ""), available: body.available !== false, sort_order: Number(body.sort_order || 0) };
+      if (!row.image_url) return out({ error: "A imagem é obrigatória." }, 400);
+      const query = body.id ? db.from("menu_banners").update(row).eq("id", body.id) : db.from("menu_banners").insert(row);
+      const { error } = await query;
+      if (error) throw error;
+      return out({ ok: true });
+    }
+    if (action === "delete_banner") {
+      const { error } = await db.from("menu_banners").delete().eq("id", body.id);
+      if (error) throw error;
+      return out({ ok: true });
     }
     if (action === "update_product_editorial") {
       const displayName = String(body.display_name || "").trim() || null,

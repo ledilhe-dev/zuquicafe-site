@@ -20,6 +20,7 @@ const cfg = window.ZUQUI_CARDAPIO_CONFIG || {},
 let data = {
     categories: [],
     products: [],
+    banners: [],
     references: [],
     ordering_enabled: false,
   },
@@ -101,7 +102,7 @@ function updateIdentity() {
   $("scanFromCart").hidden = ready;
 }
 function render() {
-  const cats = data.categories.filter((x) => x.available !== false),
+  const cats = data.categories.filter((x) => x.available !== false).sort((a,b)=>Number(a.sort_order||0)-Number(b.sort_order||0)||String(a.name).localeCompare(String(b.name),'pt-BR')),
     ref = reference(),
     current = cats.find((x) => x.id === active);
   $("categories").innerHTML =
@@ -112,9 +113,10 @@ function render() {
           `<button class="${active === x.id ? "active" : ""}" data-cat="${x.id}"><span>${escape(x.name)}</span><small>${data.products.filter((p) => p.available && p.category_id === x.id).length}</small></button>`,
       )
       .join("");
-  const products = data.products.filter(
+  const categoryOrder=new Map(cats.map((x,index)=>[x.id,index])),products = data.products.filter(
     (x) => x.available && (!active || x.category_id === active),
-  );
+  ).sort((a,b)=>(categoryOrder.get(a.category_id)??9999)-(categoryOrder.get(b.category_id)??9999)||Number(a.sort_order||0)-Number(b.sort_order||0)||String(a.name).localeCompare(String(b.name),'pt-BR'));
+  renderBanners();
   $("categoryTitle").textContent = current?.name || "Todos os produtos";
   $("products").innerHTML = products.length
     ? products
@@ -134,6 +136,8 @@ function render() {
   renderCart();
   updateIdentity();
 }
+let bannerIndex=0,bannerTimer;
+function renderBanners(){const banners=(data.banners||[]).filter(x=>x.available!==false),host=$('bannerCarousel');clearInterval(bannerTimer);if(!banners.length){host.hidden=true;host.innerHTML='';return}bannerIndex=Math.min(bannerIndex,banners.length-1);host.hidden=false;host.innerHTML=`<div class="banner-track">${banners.map((x,index)=>`<figure class="banner-slide ${index===bannerIndex?'active':''}"><img src="${escape(x.image_url)}" alt="${escape(x.alt_text||x.title||'Destaque do cardápio')}">${x.title?`<figcaption>${escape(x.title)}</figcaption>`:''}</figure>`).join('')}</div>${banners.length>1?`<div class="banner-dots">${banners.map((_,index)=>`<button data-banner-index="${index}" class="${index===bannerIndex?'active':''}" aria-label="Ver destaque ${index+1}"></button>`).join('')}</div>`:''}`;host.querySelectorAll('[data-banner-index]').forEach(button=>button.onclick=()=>{bannerIndex=Number(button.dataset.bannerIndex);renderBanners()});if(banners.length>1&&!matchMedia('(prefers-reduced-motion: reduce)').matches)bannerTimer=setInterval(()=>{bannerIndex=(bannerIndex+1)%banners.length;renderBanners()},5500)}
 function inlineOptions(x, key) {
   const options = Array.isArray(x.observation_options)
     ? x.observation_options
