@@ -85,13 +85,13 @@ function updateIdentity() {
   $("welcome").classList.toggle("identified", ready);
   $("welcomeTitle").textContent = ready
     ? `Comanda ${cardLabel} identificada`
-    : "Leia sua comanda";
+    : "Monte seu pedido";
   $("welcomeCopy").textContent = ready
     ? "Agora você pode lançar pedidos, acompanhar sua conta digital e pedir atendimento."
-    : "Leia o QR da comanda uma vez para lançar pedidos, acompanhar seus lançamentos digitais ou chamar um atendente.";
+    : "Escolha seus produtos com calma. Você poderá conferir tudo antes de ler a comanda.";
   $("identifyCardButton").textContent = ready
     ? "Trocar comanda"
-    : "Ler QR da comanda";
+    : "Ver meu pedido";
   $("cardClaimBox").classList.toggle("validated", ready);
   $("cardClaimBox").querySelector("strong").textContent = ready
     ? `COMANDA ${cardLabel}`
@@ -122,7 +122,7 @@ function render() {
     ? products
         .map(
           (p) =>
-            `<article class="product">${p.image_url ? `<img src="${escape(p.image_url)}" alt="${escape(p.name)}" loading="lazy">` : '<div class="product-placeholder" aria-hidden="true"></div>'}<div class="product-body"><h3>${escape(p.name)}</h3><p>${escape(p.description)}</p><div class="product-foot"><strong>${money.format(p.source_price ?? p.price)}</strong><button data-add="${p.id}" aria-label="Adicionar ${escape(p.name)}">Adicionar</button></div></div></article>`,
+            `<article class="product"><div class="product-media">${p.image_url ? `<img src="${escape(p.image_url)}" alt="${escape(p.name)}" loading="lazy" decoding="async">` : '<div class="product-placeholder" aria-hidden="true"></div>'}</div><div class="product-body"><h3>${escape(p.name)}</h3><p>${escape(p.description)}</p><div class="product-foot"><strong>${money.format(p.source_price ?? p.price)}</strong><button data-add="${p.id}" aria-label="Adicionar ${escape(p.name)}">Adicionar</button></div></div></article>`,
         )
         .join("")
     : '<div class="empty">Nenhum produto disponível nesta categoria.</div>';
@@ -166,7 +166,7 @@ function renderCart() {
         const productTotal = [...cart.values()]
           .filter((item) => item.id === x.id)
           .reduce((sum, item) => sum + item.qty, 0);
-        return `<div class="cart-item"><div class="cart-item-thumb">${thumb}</div><div class="cart-item-copy"><strong>${escape(x.name)}</strong><small>${money.format(x.price)}</small>${options.length ? "" : `<button class="item-note ${note ? "has-note" : ""}" data-item-note="${escape(key)}" aria-label="${note ? "Editar" : "Adicionar"} observação em ${escape(x.name)}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11.5a7.5 7.5 0 0 1-8 7.48 9.1 9.1 0 0 1-3.63-.9L4 20l1.36-3.64A7.23 7.23 0 0 1 4 12C4 7.86 7.58 4.5 12 4.5s8 3.13 8 7Z"/><path d="M8.5 11.8h.01M12 11.8h.01M15.5 11.8h.01"/></svg><span>${note ? "Editar observação" : required ? "Preencher observação *" : "Adicionar observação"}</span></button>${note ? `<em title="${escape(note)}">${escape(note)}</em>` : ""}`}</div><div class="qty"><button data-line-dec="${escape(key)}" aria-label="Remover um">−</button><b>${x.qty}</b><button data-line-add="${escape(key)}" aria-label="Adicionar outro" ${productTotal >= maximum ? "disabled" : ""}>+</button></div>${inlineOptions(x, key)}</div>`;
+        return `<div class="cart-item"><div class="cart-item-thumb">${thumb}</div><div class="cart-item-copy"><strong>${escape(x.name)}</strong><small>${money.format(x.price)} cada</small><button class="item-note ${note ? "has-note" : ""}" data-item-note="${escape(key)}" aria-label="${note ? "Editar" : "Adicionar"} observação em ${escape(x.name)}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11.5a7.5 7.5 0 0 1-8 7.48 9.1 9.1 0 0 1-3.63-.9L4 20l1.36-3.64A7.23 7.23 0 0 1 4 12C4 7.86 7.58 4.5 12 4.5s8 3.13 8 7Z"/><path d="M8.5 11.8h.01M12 11.8h.01M15.5 11.8h.01"/></svg><span>${note ? "Editar observação" : required ? "Preencher observação *" : "Adicionar observação"}</span></button>${note ? `<em title="${escape(note)}">${escape(note)}</em>` : ""}</div><div class="cart-item-actions"><div class="qty"><button data-line-dec="${escape(key)}" aria-label="Diminuir quantidade" ${x.qty<=1?'disabled':''}>−</button><b>${x.qty}</b><button data-line-add="${escape(key)}" aria-label="Adicionar outro" ${productTotal >= maximum ? "disabled" : ""}>+</button></div><button class="remove-item" data-line-remove="${escape(key)}" aria-label="Excluir ${escape(x.name)} do pedido"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3M7 7l1 13h8l1-13M10 11v5M14 11v5"/></svg></button></div>${inlineOptions(x, key)}</div>`;
       })
       .join("") || '<p class="empty">Seu carrinho está vazio.</p>';
   $("cartCount").textContent = `${count} ${count === 1 ? "item" : "itens"}`;
@@ -207,6 +207,7 @@ document.addEventListener("click", (e) => {
   const add = e.target.closest("[data-add]"),
     lineAdd = e.target.closest("[data-line-add]"),
     lineDec = e.target.closest("[data-line-dec]"),
+    lineRemove = e.target.closest("[data-line-remove]"),
     cat = e.target.closest("[data-cat]");
   if (add) {
     const p = data.products.find((x) => x.id === add.dataset.add);
@@ -287,6 +288,12 @@ document.addEventListener("click", (e) => {
     if (item && (item.qty <= 1 || --item.qty < 1)) cart.delete(key);
     renderCart();
   }
+  if (lineRemove) {
+    const item = cart.get(lineRemove.dataset.lineRemove);
+    cart.delete(lineRemove.dataset.lineRemove);
+    renderCart();
+    if (item) toast(`${item.name} removido do pedido`);
+  }
   if (cat) {
     active = cat.dataset.cat;
     render();
@@ -325,8 +332,8 @@ document.addEventListener("click", (e) => {
     )
     .join("");
   $("itemNoteChoices").hidden = !options.length;
-  $("itemNoteCustomLabel").hidden = !!options.length;
-  $("clearItemNote").hidden = !!options.length;
+  $("itemNoteCustomLabel").hidden = false;
+  $("clearItemNote").hidden = false;
   $("itemNoteText").value = item.observation || "";
   $("itemNoteCount").textContent = $("itemNoteText").value.length;
   $("itemNoteMessage").textContent = "";
@@ -458,7 +465,7 @@ $("qrImage").onchange = async (e) => {
     e.target.value = "";
   }
 };
-$("identifyCardButton").onclick = () => startScanner();
+$("identifyCardButton").onclick = () => cardClaim ? startScanner() : toggle(true);
 $("scanFromCart").onclick = () => startScanner("cart");
 function orderFingerprint() {
   return JSON.stringify(
