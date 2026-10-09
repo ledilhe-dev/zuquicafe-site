@@ -332,8 +332,10 @@ document.addEventListener("click", (e) => {
     )
     .join("");
   $("itemNoteChoices").hidden = !options.length;
-  $("itemNoteCustomLabel").hidden = false;
-  $("clearItemNote").hidden = false;
+  // Respeita a configuração editorial do produto: quando existem opções
+  // cadastradas, o cliente escolhe uma delas; caso contrário, digita livremente.
+  $("itemNoteCustomLabel").hidden = !!options.length;
+  $("clearItemNote").hidden = !!options.length;
   $("itemNoteText").value = item.observation || "";
   $("itemNoteCount").textContent = $("itemNoteText").value.length;
   $("itemNoteMessage").textContent = "";

@@ -1322,16 +1322,25 @@ Deno.serve(async (req) => {
         );
       const requested = Array.isArray(body.items) ? body.items : [];
       if (!requested.length) return out({ error: "Pedido vazio." }, 400);
-      const ids = requested.map((x: any) => x.product_id),
+      const { data: enabledCategories } = await db
+          .from("menu_categories")
+          .select("id")
+          .eq("store_key", connector.store_key)
+          .eq("source_branch_id", connector.raffinato_branch_id)
+          .eq("available", true)
+          .eq("digital_enabled", true),
+        enabledCategoryIds = (enabledCategories || []).map((x: any) => x.id),
+        ids = requested.map((x: any) => x.product_id),
         { data: products } = await db
           .from("menu_products")
           .select("*")
           .in("id", ids)
+          .in("category_id", enabledCategoryIds)
           .eq("store_key", connector.store_key)
           .eq("source_branch_id", connector.raffinato_branch_id)
-          .eq("visible", true)
           .eq("available", true)
-          .eq("source_available", true);
+          .eq("source_available", true)
+          .or("cardapio_override.is.null,cardapio_override.eq.true");
       if (!products || products.length !== new Set(ids).size)
         return out(
           { error: "Um produto ficou indisponível. Atualize o cardápio." },
