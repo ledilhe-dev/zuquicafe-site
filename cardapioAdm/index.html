@@ -9,6 +9,7 @@
     <style>
       .filters {
         margin: 16px 0;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
       }
       .filters input[type="checkbox"],
       .select-product input {
@@ -55,6 +56,9 @@
         font-weight: 700;
       }
       @media (max-width: 650px) {
+        .filters {
+          grid-template-columns: 1fr;
+        }
         .item:has(.select-product) {
           grid-template-columns: 1fr;
         }
@@ -695,6 +699,6 @@
       }
     </style>
     <script src="../cardapio-config.js?v=20261001-19"></script>
-    <script type="module" src="./app.js?v=20261008-2200"></script>
+    <script type="module" src="./app.js?v=20261008-2245"></script>
   </body>
 </html>
