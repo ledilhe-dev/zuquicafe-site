@@ -55,6 +55,52 @@
         gap: 7px;
         font-weight: 700;
       }
+      .product-summary {
+        display: flex;
+        align-items: flex-start;
+        gap: 14px;
+        min-width: 0;
+      }
+      .product-copy {
+        min-width: 0;
+      }
+      .product-thumbnail {
+        flex: 0 0 76px;
+        display: grid;
+        width: 76px;
+        height: 76px;
+        padding: 0;
+        place-items: center;
+        overflow: hidden;
+        border: 1px solid #d8e0d9;
+        border-radius: 12px;
+        background: #eef3ed;
+        color: #486052;
+      }
+      .product-thumbnail:hover,
+      .product-thumbnail:focus-visible {
+        border-color: #2d7550;
+        box-shadow: 0 0 0 3px rgba(45, 117, 80, 0.16);
+        transform: translateY(-1px);
+      }
+      .product-thumbnail img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+      .product-thumbnail.no-image {
+        align-content: center;
+        gap: 1px;
+      }
+      .product-thumbnail.no-image span {
+        font-size: 24px;
+        line-height: 1;
+      }
+      .product-thumbnail.no-image small {
+        font-size: 10px;
+        font-weight: 800;
+        text-transform: uppercase;
+      }
       @media (max-width: 650px) {
         .filters {
           grid-template-columns: 1fr;
@@ -723,6 +769,6 @@
       }
     </style>
     <script src="../cardapio-config.js?v=20261001-19"></script>
-    <script type="module" src="./app.js?v=20261008-2355"></script>
+    <script type="module" src="./app.js?v=20261009-1"></script>
   </body>
 </html>
