@@ -162,6 +162,24 @@
         </div>
       </form>
     </dialog>
+    <dialog id="categoryEditor" class="editor-dialog category-dialog">
+      <form id="categoryEditorForm">
+        <div class="editor-head">
+          <div><small>EDIÇÃO DO CARDÁPIO</small><h2>Editar agrupamento</h2></div>
+          <button type="button" class="category-editor-close ghost" aria-label="Fechar">×</button>
+        </div>
+        <div class="editor-grid">
+          <label>Nome original no Raffinato<input id="categorySourceName" readonly /></label>
+          <label>ID do grupo<input id="categoryRaffinatoId" readonly /></label>
+          <label class="wide">Nome no Cardápio para o cliente<input id="categoryDisplayName" maxlength="100" required placeholder="Digite o nome que o cliente verá" /></label>
+        </div>
+        <p id="categoryEditorMessage" class="editor-message"></p>
+        <div class="editor-actions">
+          <button type="button" class="ghost category-editor-cancel">Cancelar</button>
+          <button id="categoryEditorSave" type="submit">Salvar</button>
+        </div>
+      </form>
+    </dialog>
     <dialog id="productEditor" class="editor-dialog">
       <form id="productEditorForm">
         <div class="editor-head">
@@ -335,6 +353,9 @@
       .editor-dialog form {
         padding: 24px;
       }
+      .category-dialog {
+        width: min(620px, calc(100% - 28px));
+      }
       .editor-head {
         display: flex;
         align-items: flex-start;
@@ -353,7 +374,8 @@
         font-weight: 900;
         letter-spacing: 0.12em;
       }
-      .editor-close {
+      .editor-close,
+      .category-editor-close {
         width: 42px;
         height: 42px;
         padding: 0;
@@ -699,6 +721,6 @@
       }
     </style>
     <script src="../cardapio-config.js?v=20261001-19"></script>
-    <script type="module" src="./app.js?v=20261008-2245"></script>
+    <script type="module" src="./app.js?v=20261008-2315"></script>
   </body>
 </html>
