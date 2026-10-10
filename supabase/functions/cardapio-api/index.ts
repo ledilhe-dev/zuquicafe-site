@@ -1022,6 +1022,11 @@ Deno.serve(async (req) => {
             display_name: displayName,
             description: String(body.description || ""),
             image_url: body.image_url || null,
+            additional_image_url: body.additional_image_url || null,
+            animate_images:
+              !!body.animate_images &&
+              !!body.image_url &&
+              !!body.additional_image_url,
             sort_order: Number(body.sort_order || 0),
             featured: !!body.featured,
             default_observation: defaultObservation,

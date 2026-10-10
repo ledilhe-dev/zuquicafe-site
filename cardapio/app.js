@@ -73,6 +73,15 @@ api = async function (action, body = {}) {
 function reference() {
   return data.references.find((x) => x.id === referenceId && x.available);
 }
+function productMedia(product, className = "product-media") {
+  const primary = product.image_url || product.additional_image_url || "",
+    secondary = product.image_url && product.additional_image_url ? product.additional_image_url : "",
+    animated = !!(primary && secondary && product.animate_images),
+    classes = `${className}${secondary ? " multi-image" : ""}${animated ? " animate-images" : ""}`;
+  if (!primary)
+    return `<div class="${classes}"><div class="product-placeholder" aria-hidden="true"></div></div>`;
+  return `<div class="${classes}"><img src="${escape(primary)}" alt="${escape(product.name)}" loading="lazy" decoding="async">${secondary ? `<img src="${escape(secondary)}" alt="" loading="lazy" decoding="async">` : ""}</div>`;
+}
 function toast(text) {
   $("toast").textContent = text;
   $("toast").classList.add("show");
@@ -126,7 +135,7 @@ function render() {
     ? products
         .map(
           (p) =>
-            `<article class="product"><div class="product-media">${p.image_url ? `<img src="${escape(p.image_url)}" alt="${escape(p.name)}" loading="lazy" decoding="async">` : '<div class="product-placeholder" aria-hidden="true"></div>'}</div><div class="product-body"><h3>${escape(p.name)}</h3><p>${escape(p.description)}</p><div class="product-foot"><strong>${money.format(p.source_price ?? p.price)}</strong><button data-add="${p.id}" aria-label="Adicionar ${escape(p.name)}">Adicionar</button></div></div></article>`,
+            `<article class="product">${productMedia(p)}<div class="product-body"><h3>${escape(p.name)}</h3><p>${escape(p.description)}</p><div class="product-foot"><strong>${money.format(p.source_price ?? p.price)}</strong><button data-add="${p.id}" aria-label="Adicionar ${escape(p.name)}">Adicionar</button></div></div></article>`,
         )
         .join("")
     : '<div class="empty">Nenhum produto disponível nesta categoria.</div>';
@@ -135,9 +144,12 @@ function render() {
     ? `<strong>${escape(ref.name)} SELECIONADA</strong>`
     : `<strong>MESA NÃO IDENTIFICADA</strong>`;
   $("fixedReference").textContent = ref ? ref.name : "Mesa não identificada";
+  document.body.classList.toggle("read-only-mode", !data.ordering_enabled);
+  $("notice").classList.toggle("read-only-ribbon", !data.ordering_enabled);
   $("notice").textContent = data.ordering_enabled
     ? ""
-    : "Cardápio em preparação. Os pedidos públicos ainda não estão habilitados.";
+    : "Modo leitura: conheça nossos produtos e chame o atendente para fazer seu pedido.";
+  $("cartButton").disabled = !data.ordering_enabled;
   renderCart();
   updateIdentity();
 }
@@ -146,7 +158,7 @@ function renderFeatured(products) {
     host = $("featuredProducts");
   host.hidden = !featured.length;
   host.innerHTML = featured.length
-    ? `<div class="featured-head"><div><small>PARA VOCÊ DESCOBRIR</small><h3>Novidades e destaques</h3></div><span>Deslize para conhecer →</span></div><div class="featured-track">${featured.map((p) => `<article class="featured-card"><div class="featured-image">${p.image_url ? `<img src="${escape(p.image_url)}" alt="${escape(p.name)}" loading="lazy" decoding="async">` : '<span aria-hidden="true">☕</span>'}</div><div class="featured-copy"><strong>${escape(p.name)}</strong><small>${money.format(p.source_price ?? p.price)}</small></div><button data-add="${p.id}" aria-label="Adicionar ${escape(p.name)}">+</button></article>`).join("")}</div>`
+    ? `<div class="featured-head"><div><small>PARA VOCÊ DESCOBRIR</small><h3>Novidades e destaques</h3></div><span>Deslize para conhecer →</span></div><div class="featured-track">${featured.map((p) => `<article class="featured-card">${productMedia(p,"featured-image")}<div class="featured-copy"><strong>${escape(p.name)}</strong><small>${money.format(p.source_price ?? p.price)}</small></div><button data-add="${p.id}" aria-label="Adicionar ${escape(p.name)}">+</button></article>`).join("")}</div>`
     : "";
 }
 $("productSearch").oninput = (event) => {
@@ -227,6 +239,8 @@ document.addEventListener("click", (e) => {
     lineRemove = e.target.closest("[data-line-remove]"),
     cat = e.target.closest("[data-cat]");
   if (add) {
+    if (!data.ordering_enabled)
+      return toast("Cardápio disponível somente para consulta.");
     const p = data.products.find((x) => x.id === add.dataset.add);
     if (!p) return;
     const configurable =
@@ -401,7 +415,10 @@ function toggle(open) {
   $("overlay").classList.toggle("open", open);
   $("cart").setAttribute("aria-hidden", String(!open));
 }
-$("cartButton").onclick = () => toggle(true);
+$("cartButton").onclick = () =>
+  data.ordering_enabled
+    ? toggle(true)
+    : toast("Cardápio disponível somente para consulta.");
 $("closeCart").onclick = $("overlay").onclick = () => toggle(false);
 function tokenFrom(raw) {
   let token = "";
@@ -491,7 +508,12 @@ $("qrImage").onchange = async (e) => {
     e.target.value = "";
   }
 };
-$("identifyCardButton").onclick = () => cardClaim ? startScanner() : toggle(true);
+$("identifyCardButton").onclick = () =>
+  data.ordering_enabled
+    ? cardClaim
+      ? startScanner()
+      : toggle(true)
+    : toast("Cardápio disponível somente para consulta.");
 $("scanFromCart").onclick = () => startScanner("cart");
 function orderFingerprint() {
   return JSON.stringify(
@@ -588,6 +610,11 @@ async function submitOrder() {
   }
 }
 $("reviewButton").onclick = () => {
+  if (!data.ordering_enabled) {
+    $("cartMessage").textContent =
+      "O cardápio está em modo leitura. Chame o atendente para fazer seu pedido.";
+    return;
+  }
   const ref = reference();
   if (!ref) {
     $("cartMessage").textContent =
@@ -626,6 +653,7 @@ $("reviewButton").onclick = () => {
   startScanner("submit");
 };
 $("closeOrderResult").onclick = () => $("orderResultDialog").close();
+$("viewReadOnlyMenu").onclick = () => $("readOnlyDialog").close();
 $("reviewFailedOrder").onclick = () => {
   $("orderResultDialog").close();
   $("reviewButton").textContent = "Ler comanda e enviar";
@@ -714,6 +742,8 @@ document.querySelectorAll("[data-service]").forEach(
     data = await api("public_menu");
     splitConfigurableQuantities();
     render();
+    if (!data.ordering_enabled && !$("readOnlyDialog").open)
+      $("readOnlyDialog").showModal();
   } catch (e) {
     $("notice").textContent = e.message;
     $("products").innerHTML =

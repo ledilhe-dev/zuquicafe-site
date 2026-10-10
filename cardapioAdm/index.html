@@ -166,6 +166,7 @@
           </div>
           <button id="logout" class="ghost">Sair</button>
         </header>
+        <section id="menuAvailability" class="menu-availability" aria-live="polite"></section>
         <nav id="tabs">
           <button data-tab="products" class="active">Produtos</button
           ><button data-tab="banners">Destaques</button
@@ -295,7 +296,8 @@
               step="1"
           /></label>
           <div class="wide image-editor">
-            <span>Foto do produto</span>
+            <span>Imagens do produto</span>
+            <small>A primeira imagem é sempre a principal. Máximo de duas imagens.</small>
             <div
               id="editorImageDrop"
               class="image-drop"
@@ -332,8 +334,31 @@
               accept="image/jpeg,image/png,image/webp,image/heic,image/heif"
               hidden
             /><input id="editorImage" type="hidden" /><small
-              >A imagem será otimizada e armazenada no próprio cardápio.</small
+              >Esta é a imagem principal exibida primeiro no cardápio.</small
             >
+            <div
+              id="editorAdditionalImageDrop"
+              class="image-drop secondary-image-drop"
+              tabindex="0"
+              role="button"
+              aria-label="Selecionar ou arrastar imagem adicional"
+            >
+              <div class="image-preview">
+                <img id="editorAdditionalImagePreview" alt="Prévia da imagem adicional" hidden /><span id="editorAdditionalImagePlaceholder" aria-hidden="true">＋</span>
+              </div>
+              <div>
+                <strong>Imagem adicional</strong>
+                <p>Arraste a segunda imagem ou escolha na galeria.</p>
+                <button id="editorPickAdditionalImage" type="button" class="ghost">Escolher imagem</button>
+                <button id="editorRemoveAdditionalImage" type="button" class="ghost" hidden>Remover</button>
+              </div>
+            </div>
+            <input id="editorAdditionalImageFile" type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif" hidden />
+            <input id="editorAdditionalImage" type="hidden" />
+            <div class="image-order-actions">
+              <button id="editorSwapImages" type="button" class="ghost">⇄ Tornar a imagem adicional principal</button>
+              <label class="editor-check"><input id="editorAnimateImages" type="checkbox" /> Animar as duas imagens no cardápio</label>
+            </div>
           </div>
           <label
             >Ordem de exibição<input
@@ -542,6 +567,36 @@
       .image-drop button {
         padding: 8px 11px;
       }
+      .secondary-image-drop {
+        background: #fbfaf6;
+      }
+      .image-order-actions {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+      .menu-availability {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        align-items: center;
+        gap: 18px;
+        margin: 20px 0 4px;
+        padding: 18px 20px;
+        border: 2px solid #efb24e;
+        border-radius: 16px;
+        background: #fff6df;
+        box-shadow: 0 8px 22px rgba(130, 83, 20, 0.1);
+      }
+      .menu-availability.active {
+        border-color: #55a773;
+        background: #e9f7ed;
+      }
+      .menu-availability h2 { margin: 0; font: 800 22px Georgia, serif; }
+      .menu-availability p { margin: 3px 0 0; color: #657067; }
+      .menu-availability button { min-width: 210px; }
+      .menu-availability.active button { background: #a33; }
       .editor-actions {
         display: flex;
         justify-content: flex-end;
@@ -586,6 +641,12 @@
           width: 82px;
           height: 82px;
         }
+        .image-order-actions,
+        .menu-availability {
+          grid-template-columns: 1fr;
+          display: grid;
+        }
+        .menu-availability button { width: 100%; }
         .editor-actions button {
           flex: 1;
         }
@@ -769,6 +830,6 @@
       }
     </style>
     <script src="../cardapio-config.js?v=20261001-19"></script>
-    <script type="module" src="./app.js?v=20261009-1"></script>
+    <script type="module" src="./app.js?v=20261009-2"></script>
   </body>
 </html>
