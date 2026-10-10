@@ -626,20 +626,19 @@ Deno.serve(async (req) => {
         products = rawProducts.filter(
           (p: any) => p.cardapio_override !== false,
         );
-      const orderedCategories = (categories || []).sort((a: any, b: any) => {
-        const aOrder = Number(a.sort_order);
-        const bOrder = Number(b.sort_order);
-        const aPosition = Number.isFinite(aOrder) && aOrder > 0
-          ? aOrder
-          : Number.POSITIVE_INFINITY;
-        const bPosition = Number.isFinite(bOrder) && bOrder > 0
-          ? bOrder
-          : Number.POSITIVE_INFINITY;
-        return aPosition - bPosition || String(a.name || "").localeCompare(
-          String(b.name || ""),
-          "pt-BR",
+      const orderedCategories = (categories || [])
+          .filter((category: any) => !(Number(category.sort_order) > 0))
+          .sort((a: any, b: any) => String(a.name || "").localeCompare(String(b.name || ""), "pt-BR")),
+        positionedCategories = (categories || [])
+          .filter((category: any) => Number(category.sort_order) > 0)
+          .sort((a: any, b: any) => Number(a.sort_order) - Number(b.sort_order) || String(a.name || "").localeCompare(String(b.name || ""), "pt-BR"));
+      for (const category of positionedCategories) {
+        const index = Math.min(
+          Math.max(Number(category.sort_order) - 1, 0),
+          orderedCategories.length,
         );
-      });
+        orderedCategories.splice(index, 0, category);
+      }
       return out({
         categories: orderedCategories,
         products,

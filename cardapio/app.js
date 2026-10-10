@@ -112,14 +112,23 @@ function updateIdentity() {
     : "Leia o QR para lançar o pedido com segurança.";
   $("scanFromCart").hidden = ready;
 }
+function arrangeCategories(categories) {
+  const alphabetical = categories
+      .filter((category) => !(Number(category.sort_order) > 0))
+      .sort((a, b) => String(a.name).localeCompare(String(b.name), "pt-BR")),
+    positioned = categories
+      .filter((category) => Number(category.sort_order) > 0)
+      .sort((a, b) => Number(a.sort_order) - Number(b.sort_order) || String(a.name).localeCompare(String(b.name), "pt-BR"));
+  for (const category of positioned) {
+    const index = Math.min(Math.max(Number(category.sort_order) - 1, 0), alphabetical.length);
+    alphabetical.splice(index, 0, category);
+  }
+  return alphabetical;
+}
 function render() {
   const normalize = (value) => String(value || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("pt-BR"),
     needle = normalize(productSearch),
-    categoryPosition = (category) => {
-      const order = Number(category.sort_order);
-      return Number.isFinite(order) && order > 0 ? order : Number.POSITIVE_INFINITY;
-    },
-    cats = data.categories.filter((x) => x.available !== false).sort((a,b)=>categoryPosition(a)-categoryPosition(b)||String(a.name).localeCompare(String(b.name),'pt-BR')),
+    cats = arrangeCategories(data.categories.filter((x) => x.available !== false)),
     ref = reference(),
     current = cats.find((x) => x.id === active);
   $("categories").innerHTML =
