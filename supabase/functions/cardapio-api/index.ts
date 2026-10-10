@@ -1054,14 +1054,41 @@ Deno.serve(async (req) => {
     }
     if (action === "update_category_editorial") {
       const displayName = String(body.display_name || "").trim() || null,
-        { error } = await db
+        sortOrder = Math.max(0, Math.trunc(Number(body.sort_order || 0)));
+      if (sortOrder > 0) {
+        const { data: currentCategory } = await db
+          .from("menu_categories")
+          .select("store_key,source_branch_id")
+          .eq("id", body.id)
+          .single();
+        if (!currentCategory) return out({ error: "Agrupamento não encontrado." }, 404);
+        let conflictQuery = db
+          .from("menu_categories")
+          .select("id,display_name,source_name,name")
+          .eq("sort_order", sortOrder)
+          .neq("id", body.id);
+        conflictQuery = currentCategory.store_key === null
+          ? conflictQuery.is("store_key", null)
+          : conflictQuery.eq("store_key", currentCategory.store_key);
+        conflictQuery = currentCategory.source_branch_id === null
+          ? conflictQuery.is("source_branch_id", null)
+          : conflictQuery.eq("source_branch_id", currentCategory.source_branch_id);
+        const { data: conflict } = await conflictQuery.limit(1).maybeSingle();
+        if (conflict)
+          return out({
+            error: `A ordem ${sortOrder} já está sendo usada por ${conflict.display_name || conflict.source_name || conflict.name}. Escolha outra posição.`,
+          }, 409);
+      }
+      const { error } = await db
           .from("menu_categories")
           .update({
             display_name: displayName,
             description: String(body.description || ""),
-            sort_order: Number(body.sort_order || 0),
+            sort_order: sortOrder,
           })
           .eq("id", body.id);
+      if (error?.code === "23505")
+        return out({ error: `A ordem ${sortOrder} já está sendo usada por outro agrupamento. Escolha outra posição.` }, 409);
       if (error) throw error;
       return out({ ok: true });
     }
