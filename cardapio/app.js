@@ -35,6 +35,7 @@ let data = {
   qrReaderClass = null,
   failedOrders = new Map();
 let editingNoteId = "",
+  pendingObservationItem = null,
   productSearch = "";
 async function api(action, body = {}) {
   if (!cfg.apiUrl) throw new Error("Cardápio ainda não conectado ao servidor.");
@@ -257,6 +258,17 @@ document.addEventListener("click", (e) => {
       maximum = Number(p.max_quantity || 99);
     if (total >= maximum)
       return toast(`Máximo de ${maximum} unidade(s) para ${p.name}`);
+    if (p.observation_required) {
+      pendingObservationItem = {
+        ...p,
+        price: Number(p.source_price ?? p.price),
+        qty: 1,
+        observation: "",
+      };
+      editingNoteId = "";
+      openItemObservation(pendingObservationItem, true);
+      return;
+    }
     if (configurable) {
       const amount = total === 0 ? Number(p.min_quantity || 1) : 1;
       for (let index = 0; index < amount && total + index < maximum; index++)
@@ -307,6 +319,16 @@ document.addEventListener("click", (e) => {
         maximum = Number(item.max_quantity || 99);
       if (total >= maximum)
         return toast(`Máximo de ${maximum} unidade(s) para ${item.name}`);
+      if (item.observation_required) {
+        pendingObservationItem = {
+          ...item,
+          qty: 1,
+          observation: "",
+        };
+        editingNoteId = "";
+        openItemObservation(pendingObservationItem, true);
+        return;
+      }
       if (configurable)
         cart.set(`${item.id}:${crypto.randomUUID()}`, {
           ...item,
@@ -363,6 +385,10 @@ document.addEventListener("click", (e) => {
   const item = cart.get(button.dataset.itemNote);
   if (!item) return;
   editingNoteId = button.dataset.itemNote;
+  pendingObservationItem = null;
+  openItemObservation(item, false);
+});
+function openItemObservation(item, requireBeforeAdding = false) {
   const options = Array.isArray(item.observation_options)
     ? item.observation_options
     : [];
@@ -380,10 +406,16 @@ document.addEventListener("click", (e) => {
   $("clearItemNote").hidden = !!options.length;
   $("itemNoteText").value = item.observation || "";
   $("itemNoteCount").textContent = $("itemNoteText").value.length;
-  $("itemNoteMessage").textContent = "";
+  $("itemNoteMessage").textContent = requireBeforeAdding
+    ? "Atenção: escolha uma opção obrigatória para adicionar este produto."
+    : "";
+  $("itemNoteDialog").classList.toggle("required-choice", requireBeforeAdding);
+  $("saveItemNote").textContent = requireBeforeAdding
+    ? "Escolher e adicionar"
+    : "Salvar observação";
   $("itemNoteDialog").showModal();
   if (!options.length) requestAnimationFrame(() => $("itemNoteText").focus());
-});
+}
 $("itemNoteChoices").onchange = (e) => {
   if (e.target.matches('input[name="itemNoteChoice"]')) {
     $("itemNoteText").value = e.target.value;
@@ -394,14 +426,20 @@ $("itemNoteChoices").onchange = (e) => {
 $("itemNoteText").oninput = () => {
   $("itemNoteCount").textContent = $("itemNoteText").value.length;
 };
-$("closeItemNote").onclick = () => $("itemNoteDialog").close();
+$("closeItemNote").onclick = () => {
+  pendingObservationItem = null;
+  $("itemNoteDialog").close();
+};
+$("itemNoteDialog").addEventListener("close", () => {
+  pendingObservationItem = null;
+});
 $("clearItemNote").onclick = () => {
   $("itemNoteText").value = "";
   $("itemNoteCount").textContent = "0";
   $("itemNoteText").focus();
 };
 $("saveItemNote").onclick = () => {
-  const item = cart.get(editingNoteId),
+  const item = pendingObservationItem || cart.get(editingNoteId),
     value = $("itemNoteText").value.trim();
   if (item?.observation_required && !value) {
     $("itemNoteMessage").textContent = "Escolha uma opção para continuar.";
@@ -409,7 +447,11 @@ $("saveItemNote").onclick = () => {
   }
   if (item) {
     item.observation = value;
-    cart.set(editingNoteId, item);
+    if (pendingObservationItem) {
+      cart.set(`${item.id}:${crypto.randomUUID()}`, item);
+      toast(`${item.name} adicionado com sua escolha`);
+    } else cart.set(editingNoteId, item);
+    pendingObservationItem = null;
     renderCart();
   }
   $("itemNoteDialog").close();
