@@ -114,7 +114,11 @@ function updateIdentity() {
 function render() {
   const normalize = (value) => String(value || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("pt-BR"),
     needle = normalize(productSearch),
-    cats = data.categories.filter((x) => x.available !== false).sort((a,b)=>Number(a.sort_order||0)-Number(b.sort_order||0)||String(a.name).localeCompare(String(b.name),'pt-BR')),
+    categoryPosition = (category) => {
+      const order = Number(category.sort_order);
+      return Number.isFinite(order) && order > 0 ? order : Number.POSITIVE_INFINITY;
+    },
+    cats = data.categories.filter((x) => x.available !== false).sort((a,b)=>categoryPosition(a)-categoryPosition(b)||String(a.name).localeCompare(String(b.name),'pt-BR')),
     ref = reference(),
     current = cats.find((x) => x.id === active);
   $("categories").innerHTML =

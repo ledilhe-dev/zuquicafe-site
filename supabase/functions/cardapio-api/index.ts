@@ -626,8 +626,22 @@ Deno.serve(async (req) => {
         products = rawProducts.filter(
           (p: any) => p.cardapio_override !== false,
         );
+      const orderedCategories = (categories || []).sort((a: any, b: any) => {
+        const aOrder = Number(a.sort_order);
+        const bOrder = Number(b.sort_order);
+        const aPosition = Number.isFinite(aOrder) && aOrder > 0
+          ? aOrder
+          : Number.POSITIVE_INFINITY;
+        const bPosition = Number.isFinite(bOrder) && bOrder > 0
+          ? bOrder
+          : Number.POSITIVE_INFINITY;
+        return aPosition - bPosition || String(a.name || "").localeCompare(
+          String(b.name || ""),
+          "pt-BR",
+        );
+      });
       return out({
-        categories,
+        categories: orderedCategories,
         products,
         banners: banners || [],
         cards,
