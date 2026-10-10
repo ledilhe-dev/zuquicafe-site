@@ -132,8 +132,8 @@ function render() {
     : '<div class="empty">Nenhum produto disponível nesta categoria.</div>';
   $("tableStatus").classList.toggle("selected", !!ref);
   $("tableStatus").innerHTML = ref
-    ? `<strong>${escape(ref.name)} SELECIONADA</strong>`
-    : "<strong>MESA NÃO IDENTIFICADA</strong>";
+    ? `<span class="table-neon-icon" aria-hidden="true"><svg viewBox="0 0 32 32"><path d="M7 13h18M10 13v10M22 13v10M8 23h4M20 23h4M9 9h14a2 2 0 0 1 2 2v2H7v-2a2 2 0 0 1 2-2Z"/></svg></span><strong>${escape(ref.name)} SELECIONADA</strong>`
+    : `<span class="table-neon-icon idle" aria-hidden="true"><svg viewBox="0 0 32 32"><path d="M7 13h18M10 13v10M22 13v10M8 23h4M20 23h4M9 9h14a2 2 0 0 1 2 2v2H7v-2a2 2 0 0 1 2-2Z"/></svg></span><strong>MESA NÃO IDENTIFICADA</strong>`;
   $("fixedReference").textContent = ref ? ref.name : "Mesa não identificada";
   $("notice").textContent = data.ordering_enabled
     ? ""
