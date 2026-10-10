@@ -34,7 +34,8 @@ let data = {
   sending = false,
   qrReaderClass = null,
   failedOrders = new Map();
-let editingNoteId = "";
+let editingNoteId = "",
+  productSearch = "";
 async function api(action, body = {}) {
   if (!cfg.apiUrl) throw new Error("Cardápio ainda não conectado ao servidor.");
   const r = await fetch(cfg.apiUrl, {
@@ -102,7 +103,9 @@ function updateIdentity() {
   $("scanFromCart").hidden = ready;
 }
 function render() {
-  const cats = data.categories.filter((x) => x.available !== false).sort((a,b)=>Number(a.sort_order||0)-Number(b.sort_order||0)||String(a.name).localeCompare(String(b.name),'pt-BR')),
+  const normalize = (value) => String(value || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("pt-BR"),
+    needle = normalize(productSearch),
+    cats = data.categories.filter((x) => x.available !== false).sort((a,b)=>Number(a.sort_order||0)-Number(b.sort_order||0)||String(a.name).localeCompare(String(b.name),'pt-BR')),
     ref = reference(),
     current = cats.find((x) => x.id === active);
   $("categories").innerHTML =
@@ -114,10 +117,11 @@ function render() {
       )
       .join("");
   const categoryOrder=new Map(cats.map((x,index)=>[x.id,index])),products = data.products.filter(
-    (x) => x.available && (!active || x.category_id === active),
+    (x) => x.available && (!active || x.category_id === active) && (!needle || normalize(x.name).includes(needle)),
   ).sort((a,b)=>(categoryOrder.get(a.category_id)??9999)-(categoryOrder.get(b.category_id)??9999)||Number(a.sort_order||0)-Number(b.sort_order||0)||String(a.name).localeCompare(String(b.name),'pt-BR'));
   renderBanners();
-  $("categoryTitle").textContent = current?.name || "Todos os produtos";
+  renderFeatured(products);
+  $("categoryTitle").textContent = needle ? `${products.length} produto${products.length === 1 ? "" : "s"} encontrado${products.length === 1 ? "" : "s"}` : current?.name || "Todos os produtos";
   $("products").innerHTML = products.length
     ? products
         .map(
@@ -136,6 +140,18 @@ function render() {
   renderCart();
   updateIdentity();
 }
+function renderFeatured(products) {
+  const featured = products.filter((product) => product.featured),
+    host = $("featuredProducts");
+  host.hidden = !featured.length;
+  host.innerHTML = featured.length
+    ? `<div class="featured-head"><div><small>PARA VOCÊ DESCOBRIR</small><h3>Novidades e destaques</h3></div><span>Deslize para conhecer →</span></div><div class="featured-track">${featured.map((p) => `<article class="featured-card"><div class="featured-image">${p.image_url ? `<img src="${escape(p.image_url)}" alt="${escape(p.name)}" loading="lazy" decoding="async">` : '<span aria-hidden="true">☕</span>'}</div><div class="featured-copy"><strong>${escape(p.name)}</strong><small>${money.format(p.source_price ?? p.price)}</small></div><button data-add="${p.id}" aria-label="Adicionar ${escape(p.name)}">+</button></article>`).join("")}</div>`
+    : "";
+}
+$("productSearch").oninput = (event) => {
+  productSearch = event.target.value;
+  render();
+};
 let bannerIndex=0,bannerTimer;
 function renderBanners(){const banners=(data.banners||[]).filter(x=>x.available!==false),host=$('bannerCarousel');clearInterval(bannerTimer);if(!banners.length){host.hidden=true;host.innerHTML='';return}bannerIndex=Math.min(bannerIndex,banners.length-1);host.hidden=false;host.innerHTML=`<div class="banner-track">${banners.map((x,index)=>`<figure class="banner-slide ${index===bannerIndex?'active':''}"><img src="${escape(x.image_url)}" alt="${escape(x.alt_text||x.title||'Destaque do cardápio')}">${x.title?`<figcaption>${escape(x.title)}</figcaption>`:''}</figure>`).join('')}</div>${banners.length>1?`<div class="banner-dots">${banners.map((_,index)=>`<button data-banner-index="${index}" class="${index===bannerIndex?'active':''}" aria-label="Ver destaque ${index+1}"></button>`).join('')}</div>`:''}`;host.querySelectorAll('[data-banner-index]').forEach(button=>button.onclick=()=>{bannerIndex=Number(button.dataset.bannerIndex);renderBanners()});if(banners.length>1&&!matchMedia('(prefers-reduced-motion: reduce)').matches)bannerTimer=setInterval(()=>{bannerIndex=(bannerIndex+1)%banners.length;renderBanners()},5500)}
 function inlineOptions(x, key) {
@@ -297,6 +313,13 @@ document.addEventListener("click", (e) => {
   if (cat) {
     active = cat.dataset.cat;
     render();
+    requestAnimationFrame(() =>
+      $("categories").querySelector(".active")?.scrollIntoView({
+        behavior: "smooth",
+        block: "nearest",
+        inline: "center",
+      }),
+    );
     if (innerWidth < 760)
       $("categoryTitle").scrollIntoView({
         behavior: "smooth",
