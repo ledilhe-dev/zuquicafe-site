@@ -130,9 +130,10 @@ function render() {
         )
         .join("")
     : '<div class="empty">Nenhum produto disponível nesta categoria.</div>';
+  $("tableStatus").classList.toggle("selected", !!ref);
   $("tableStatus").innerHTML = ref
-    ? `<span>Entrega em</span><strong>${escape(ref.name)}</strong>`
-    : "<span>Mesa</span><strong>não identificada</strong>";
+    ? `<strong>${escape(ref.name)} SELECIONADA</strong>`
+    : "<strong>MESA NÃO IDENTIFICADA</strong>";
   $("fixedReference").textContent = ref ? ref.name : "Mesa não identificada";
   $("notice").textContent = data.ordering_enabled
     ? ""
