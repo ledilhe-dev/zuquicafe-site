@@ -8,6 +8,17 @@ const cors = {
 };
 const out = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: cors });
+class OrderValidationError extends Error {
+  code: string;
+  productId: string;
+
+  constructor(message: string, code: string, productId: string) {
+    super(message);
+    this.name = "OrderValidationError";
+    this.code = code;
+    this.productId = productId;
+  }
+}
 const sha256 = async (v: string) =>
   Array.from(
     new Uint8Array(
@@ -187,15 +198,13 @@ Deno.serve(async (req) => {
           .limit(1)
           .maybeSingle();
       if (existing) return out({ ok: true, already_open: true });
-      const { error } = await db
-        .from("menu_service_requests")
-        .insert({
-          card_id: c.card_id,
-          card_label: c.menu_cards.label,
-          reference_id: reference?.id || null,
-          reference_name: reference?.name || null,
-          request_type: requestType,
-        });
+      const { error } = await db.from("menu_service_requests").insert({
+        card_id: c.card_id,
+        card_label: c.menu_cards.label,
+        reference_id: reference?.id || null,
+        reference_name: reference?.name || null,
+        request_type: requestType,
+      });
       if (error) throw error;
       return out({ ok: true, already_open: false, delivery: "admin_queue" });
     }
@@ -288,9 +297,12 @@ Deno.serve(async (req) => {
       }
       if (action === "catalog_sync_order_pending") {
         const dispatcherVersion = String(body.connector_version || "");
-        const preferredDispatcher = ["2.0.9", "2.0.10", "2.0.11", "2.0.12"].includes(
-          dispatcherVersion,
-        );
+        const preferredDispatcher = [
+          "2.0.9",
+          "2.0.10",
+          "2.0.11",
+          "2.0.12",
+        ].includes(dispatcherVersion);
         if (preferredDispatcher) {
           await db.from("menu_dispatcher_leases").upsert({
             store_key: storeKey,
@@ -307,15 +319,25 @@ Deno.serve(async (req) => {
             .eq("source_branch_id", branchId)
             .gte("last_seen_at", cutoff)
             .maybeSingle();
-          if (["2.0.9", "2.0.10", "2.0.11", "2.0.12"].includes(activeDispatcher?.connector_version))
-            return out({ order: null, delegated_to: activeDispatcher.connector_version });
+          if (
+            ["2.0.9", "2.0.10", "2.0.11", "2.0.12"].includes(
+              activeDispatcher?.connector_version,
+            )
+          )
+            return out({
+              order: null,
+              delegated_to: activeDispatcher.connector_version,
+            });
         }
         const staleCutoff = new Date(Date.now() - 55_000).toISOString();
-        await db.from("menu_orders").update({
-          status: "failed",
-          error_message: "Conector local indisponível. O pedido não foi enviado.",
-          sent_at: new Date().toISOString(),
-        })
+        await db
+          .from("menu_orders")
+          .update({
+            status: "failed",
+            error_message:
+              "Conector local indisponível. O pedido não foi enviado.",
+            sent_at: new Date().toISOString(),
+          })
           .eq("store_key", storeKey)
           .eq("source_branch_id", branchId)
           .eq("status", "pending_integration")
@@ -492,11 +514,9 @@ Deno.serve(async (req) => {
             source_updated_at: now,
             source_sync_run_id: body.run_id,
           }));
-        const { error } = await db
-          .from("menu_products")
-          .upsert(rows, {
-            onConflict: "store_key,source_branch_id,raffinato_product_id",
-          });
+        const { error } = await db.from("menu_products").upsert(rows, {
+          onConflict: "store_key,source_branch_id,raffinato_product_id",
+        });
         if (error) throw error;
         await db.rpc("increment_catalog_sync_processed", {
           run_uuid: body.run_id,
@@ -628,10 +648,16 @@ Deno.serve(async (req) => {
         );
       const orderedCategories = (categories || [])
           .filter((category: any) => !(Number(category.sort_order) > 0))
-          .sort((a: any, b: any) => String(a.name || "").localeCompare(String(b.name || ""), "pt-BR")),
+          .sort((a: any, b: any) =>
+            String(a.name || "").localeCompare(String(b.name || ""), "pt-BR"),
+          ),
         positionedCategories = (categories || [])
           .filter((category: any) => Number(category.sort_order) > 0)
-          .sort((a: any, b: any) => Number(a.sort_order) - Number(b.sort_order) || String(a.name || "").localeCompare(String(b.name || ""), "pt-BR"));
+          .sort(
+            (a: any, b: any) =>
+              Number(a.sort_order) - Number(b.sort_order) ||
+              String(a.name || "").localeCompare(String(b.name || ""), "pt-BR"),
+          );
       for (const category of positionedCategories) {
         const index = Math.min(
           Math.max(Number(category.sort_order) - 1, 0),
@@ -727,11 +753,11 @@ Deno.serve(async (req) => {
               ? "menu_products"
               : n === "banners"
                 ? "menu_banners"
-              : n === "cards"
-                ? "menu_cards"
-                : n === "references"
-                  ? "menu_references"
-                  : "menu_orders";
+                : n === "cards"
+                  ? "menu_cards"
+                  : n === "references"
+                    ? "menu_references"
+                    : "menu_orders";
         const { data } = await db
           .from(table)
           .select("*")
@@ -974,27 +1000,55 @@ Deno.serve(async (req) => {
       return out({ ok: true, image_url: publicData.publicUrl });
     }
     if (action === "upload_banner_image") {
-      const base64 = String(body.data_base64 || "").replace(/^data:[^;]+;base64,/, "");
+      const base64 = String(body.data_base64 || "").replace(
+        /^data:[^;]+;base64,/,
+        "",
+      );
       if (!base64) return out({ error: "A imagem é obrigatória." }, 400);
-      if (base64.length > 4_300_000) return out({ error: "A imagem excede 3 MB." }, 413);
+      if (base64.length > 4_300_000)
+        return out({ error: "A imagem excede 3 MB." }, 413);
       let bytes: Uint8Array;
-      try { const binary = atob(base64); bytes = Uint8Array.from(binary, (c) => c.charCodeAt(0)); }
-      catch { return out({ error: "Arquivo de imagem inválido." }, 400); }
-      const path = `banners/${crypto.randomUUID()}.webp`, { error } = await db.storage.from("menu-product-images").upload(path, bytes, { contentType: "image/webp", cacheControl: "31536000", upsert: false });
+      try {
+        const binary = atob(base64);
+        bytes = Uint8Array.from(binary, (c) => c.charCodeAt(0));
+      } catch {
+        return out({ error: "Arquivo de imagem inválido." }, 400);
+      }
+      const path = `banners/${crypto.randomUUID()}.webp`,
+        { error } = await db.storage
+          .from("menu-product-images")
+          .upload(path, bytes, {
+            contentType: "image/webp",
+            cacheControl: "31536000",
+            upsert: false,
+          });
       if (error) throw error;
-      const { data: publicData } = db.storage.from("menu-product-images").getPublicUrl(path);
+      const { data: publicData } = db.storage
+        .from("menu-product-images")
+        .getPublicUrl(path);
       return out({ ok: true, image_url: publicData.publicUrl });
     }
     if (action === "upsert_banner") {
-      const row = { title: String(body.title || "").slice(0, 140), alt_text: String(body.alt_text || body.title || "").slice(0, 200), image_url: String(body.image_url || ""), available: body.available !== false, sort_order: Number(body.sort_order || 0) };
+      const row = {
+        title: String(body.title || "").slice(0, 140),
+        alt_text: String(body.alt_text || body.title || "").slice(0, 200),
+        image_url: String(body.image_url || ""),
+        available: body.available !== false,
+        sort_order: Number(body.sort_order || 0),
+      };
       if (!row.image_url) return out({ error: "A imagem é obrigatória." }, 400);
-      const query = body.id ? db.from("menu_banners").update(row).eq("id", body.id) : db.from("menu_banners").insert(row);
+      const query = body.id
+        ? db.from("menu_banners").update(row).eq("id", body.id)
+        : db.from("menu_banners").insert(row);
       const { error } = await query;
       if (error) throw error;
       return out({ ok: true });
     }
     if (action === "delete_banner") {
-      const { error } = await db.from("menu_banners").delete().eq("id", body.id);
+      const { error } = await db
+        .from("menu_banners")
+        .delete()
+        .eq("id", body.id);
       if (error) throw error;
       return out({ ok: true });
     }
@@ -1061,34 +1115,48 @@ Deno.serve(async (req) => {
           .select("store_key,source_branch_id")
           .eq("id", body.id)
           .single();
-        if (!currentCategory) return out({ error: "Agrupamento não encontrado." }, 404);
+        if (!currentCategory)
+          return out({ error: "Agrupamento não encontrado." }, 404);
         let conflictQuery = db
           .from("menu_categories")
           .select("id,display_name,source_name,name")
           .eq("sort_order", sortOrder)
           .neq("id", body.id);
-        conflictQuery = currentCategory.store_key === null
-          ? conflictQuery.is("store_key", null)
-          : conflictQuery.eq("store_key", currentCategory.store_key);
-        conflictQuery = currentCategory.source_branch_id === null
-          ? conflictQuery.is("source_branch_id", null)
-          : conflictQuery.eq("source_branch_id", currentCategory.source_branch_id);
+        conflictQuery =
+          currentCategory.store_key === null
+            ? conflictQuery.is("store_key", null)
+            : conflictQuery.eq("store_key", currentCategory.store_key);
+        conflictQuery =
+          currentCategory.source_branch_id === null
+            ? conflictQuery.is("source_branch_id", null)
+            : conflictQuery.eq(
+                "source_branch_id",
+                currentCategory.source_branch_id,
+              );
         const { data: conflict } = await conflictQuery.limit(1).maybeSingle();
         if (conflict)
-          return out({
-            error: `A ordem ${sortOrder} já está sendo usada por ${conflict.display_name || conflict.source_name || conflict.name}. Escolha outra posição.`,
-          }, 409);
+          return out(
+            {
+              error: `A ordem ${sortOrder} já está sendo usada por ${conflict.display_name || conflict.source_name || conflict.name}. Escolha outra posição.`,
+            },
+            409,
+          );
       }
       const { error } = await db
-          .from("menu_categories")
-          .update({
-            display_name: displayName,
-            description: String(body.description || ""),
-            sort_order: sortOrder,
-          })
-          .eq("id", body.id);
+        .from("menu_categories")
+        .update({
+          display_name: displayName,
+          description: String(body.description || ""),
+          sort_order: sortOrder,
+        })
+        .eq("id", body.id);
       if (error?.code === "23505")
-        return out({ error: `A ordem ${sortOrder} já está sendo usada por outro agrupamento. Escolha outra posição.` }, 409);
+        return out(
+          {
+            error: `A ordem ${sortOrder} já está sendo usada por outro agrupamento. Escolha outra posição.`,
+          },
+          409,
+        );
       if (error) throw error;
       return out({ ok: true });
     }
@@ -1391,12 +1459,15 @@ Deno.serve(async (req) => {
           { error: "Um produto ficou indisponível. Atualize o cardápio." },
           409,
         );
-      const requestedTotals = requested.reduce((totals: Map<string, number>, item: any) => {
-          const productId = String(item.product_id || ""),
-            quantity = Math.floor(Number(item.quantity));
-          totals.set(productId, (totals.get(productId) || 0) + quantity);
-          return totals;
-        }, new Map<string, number>()),
+      const requestedTotals = requested.reduce(
+          (totals: Map<string, number>, item: any) => {
+            const productId = String(item.product_id || ""),
+              quantity = Math.floor(Number(item.quantity));
+            totals.set(productId, (totals.get(productId) || 0) + quantity);
+            return totals;
+          },
+          new Map<string, number>(),
+        ),
         guid = crypto.randomUUID(),
         receipt = crypto.randomUUID() + crypto.randomUUID(),
         items = requested.map((x: any) => {
@@ -1418,20 +1489,26 @@ Deno.serve(async (req) => {
             productTotal < minimum ||
             productTotal > maximum
           )
-            throw new Error(
+            throw new OrderValidationError(
               `Quantidade de ${p?.display_name || p?.source_name || p?.name || "produto"} deve ficar entre ${minimum} e ${maximum}.`,
+              "invalid_quantity",
+              String(p?.id || x.product_id || ""),
             );
           if (p.observation_required && !observation)
-            throw new Error(
-              `Escolha uma opção para ${p.display_name || p.source_name || p.name}.`,
+            throw new OrderValidationError(
+              `${p.display_name || p.source_name || p.name} precisa de uma escolha obrigatória.`,
+              "missing_required_observation",
+              String(p.id),
             );
           if (
             observation &&
             configuredOptions.length &&
             !configuredOptions.includes(observation)
           )
-            throw new Error(
+            throw new OrderValidationError(
               `A opção escolhida para ${p.display_name || p.source_name || p.name} não é válida.`,
+              "invalid_observation_option",
+              String(p.id),
             );
           return {
             product_id: p.id,
@@ -1473,19 +1550,17 @@ Deno.serve(async (req) => {
         .select("id")
         .single();
       if (error) throw error;
-      const { error: itemError } = await db
-        .from("menu_order_items")
-        .insert(
-          items.map((x: any) => ({
-            order_id: o.id,
-            product_id: x.product_id,
-            raffinato_product_id: x.raffinato_product_id,
-            name: x.name,
-            quantity: x.quantity,
-            unit_price: x.unit_price,
-            observation: x.observation,
-          })),
-        );
+      const { error: itemError } = await db.from("menu_order_items").insert(
+        items.map((x: any) => ({
+          order_id: o.id,
+          product_id: x.product_id,
+          raffinato_product_id: x.raffinato_product_id,
+          name: x.name,
+          quantity: x.quantity,
+          unit_price: x.unit_price,
+          observation: x.observation,
+        })),
+      );
       if (itemError) throw itemError;
       await db
         .from("menu_card_claims")
@@ -1503,7 +1578,9 @@ Deno.serve(async (req) => {
       if (!receipt) return out({ error: "Comprovante inválido." }, 400);
       const { data: o } = await db
         .from("menu_orders")
-        .select("guid,status,card_label,idvenda,numeropedido,error_message,created_at")
+        .select(
+          "guid,status,card_label,idvenda,numeropedido,error_message,created_at",
+        )
         .eq("guid", body.guid)
         .eq("receipt_token_hash", await sha256(receipt))
         .single();
@@ -1514,11 +1591,15 @@ Deno.serve(async (req) => {
       ) {
         const errorMessage =
           "Conector local indisponível. O pedido não foi enviado.";
-        await db.from("menu_orders").update({
-          status: "failed",
-          error_message: errorMessage,
-          sent_at: new Date().toISOString(),
-        }).eq("guid", body.guid).eq("status", "pending_integration");
+        await db
+          .from("menu_orders")
+          .update({
+            status: "failed",
+            error_message: errorMessage,
+            sent_at: new Date().toISOString(),
+          })
+          .eq("guid", body.guid)
+          .eq("status", "pending_integration");
         return out({ ...o, status: "failed", error_message: errorMessage });
       }
       return out(o);
@@ -1647,6 +1728,11 @@ Deno.serve(async (req) => {
     }
     return out({ error: "Ação desconhecida" }, 404);
   } catch (e) {
+    if (e instanceof OrderValidationError)
+      return out(
+        { error: e.message, code: e.code, product_id: e.productId },
+        422,
+      );
     console.error(e);
     return out({ error: "Falha interna segura." }, 500);
   }

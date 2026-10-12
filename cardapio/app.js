@@ -24,11 +24,24 @@ let data = {
     references: [],
     ordering_enabled: false,
   },
-  cart = new Map(JSON.parse(localStorage.getItem("zuqui_cart") || "[]")),
+  referenceId = params.get("reference") || "",
+  cartStorageKey = `zuqui_cart_session:${referenceId || "sem-mesa"}`,
+  loadCart = () => {
+    // A versão antiga deixava o pedido no aparelho para o próximo cliente.
+    localStorage.removeItem("zuqui_cart");
+    try {
+      return new Map(
+        JSON.parse(sessionStorage.getItem(cartStorageKey) || "[]"),
+      );
+    } catch {
+      sessionStorage.removeItem(cartStorageKey);
+      return new Map();
+    }
+  },
+  cart = loadCart(),
   active = "",
   cardClaim = sessionStorage.getItem("zuqui_card_claim") || "",
   cardLabel = sessionStorage.getItem("zuqui_card_label") || "",
-  referenceId = params.get("reference") || "",
   scannerControls = null,
   afterScan = null,
   sending = false,
@@ -36,7 +49,8 @@ let data = {
   failedOrders = new Map();
 let editingNoteId = "",
   pendingObservationItem = null,
-  productSearch = "";
+  productSearch = "",
+  cartValidation = new Map();
 async function api(action, body = {}) {
   if (!cfg.apiUrl) throw new Error("Cardápio ainda não conectado ao servidor.");
   const r = await fetch(cfg.apiUrl, {
@@ -45,7 +59,12 @@ async function api(action, body = {}) {
       body: JSON.stringify({ action, ...body }),
     }),
     j = await r.json().catch(() => ({}));
-  if (!r.ok) throw new Error(j.error || "Falha ao acessar o cardápio.");
+  if (!r.ok) {
+    const error = new Error(j.error || "Falha ao acessar o cardápio.");
+    error.code = j.code || "";
+    error.productId = j.product_id || "";
+    throw error;
+  }
   if (action === "public_menu") {
     j.categories = (j.categories || []).map((x) => ({
       ...x,
@@ -76,7 +95,10 @@ function reference() {
 }
 function productMedia(product, className = "product-media") {
   const primary = product.image_url || product.additional_image_url || "",
-    secondary = product.image_url && product.additional_image_url ? product.additional_image_url : "",
+    secondary =
+      product.image_url && product.additional_image_url
+        ? product.additional_image_url
+        : "",
     animated = !!(primary && secondary && product.animate_images),
     classes = `${className}${secondary ? " multi-image" : ""}${animated ? " animate-images" : ""}`;
   if (!primary)
@@ -118,17 +140,30 @@ function arrangeCategories(categories) {
       .sort((a, b) => String(a.name).localeCompare(String(b.name), "pt-BR")),
     positioned = categories
       .filter((category) => Number(category.sort_order) > 0)
-      .sort((a, b) => Number(a.sort_order) - Number(b.sort_order) || String(a.name).localeCompare(String(b.name), "pt-BR"));
+      .sort(
+        (a, b) =>
+          Number(a.sort_order) - Number(b.sort_order) ||
+          String(a.name).localeCompare(String(b.name), "pt-BR"),
+      );
   for (const category of positioned) {
-    const index = Math.min(Math.max(Number(category.sort_order) - 1, 0), alphabetical.length);
+    const index = Math.min(
+      Math.max(Number(category.sort_order) - 1, 0),
+      alphabetical.length,
+    );
     alphabetical.splice(index, 0, category);
   }
   return alphabetical;
 }
 function render() {
-  const normalize = (value) => String(value || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("pt-BR"),
+  const normalize = (value) =>
+      String(value || "")
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .toLocaleLowerCase("pt-BR"),
     needle = normalize(productSearch),
-    cats = arrangeCategories(data.categories.filter((x) => x.available !== false)),
+    cats = arrangeCategories(
+      data.categories.filter((x) => x.available !== false),
+    ),
     ref = reference(),
     current = cats.find((x) => x.id === active);
   $("categories").innerHTML =
@@ -139,12 +174,26 @@ function render() {
           `<button class="${active === x.id ? "active" : ""}" data-cat="${x.id}"><span>${escape(x.name)}</span><small>${data.products.filter((p) => p.available && p.category_id === x.id).length}</small></button>`,
       )
       .join("");
-  const categoryOrder=new Map(cats.map((x,index)=>[x.id,index])),products = data.products.filter(
-    (x) => x.available && (!active || x.category_id === active) && (!needle || normalize(x.name).includes(needle)),
-  ).sort((a,b)=>(categoryOrder.get(a.category_id)??9999)-(categoryOrder.get(b.category_id)??9999)||Number(a.sort_order||0)-Number(b.sort_order||0)||String(a.name).localeCompare(String(b.name),'pt-BR'));
+  const categoryOrder = new Map(cats.map((x, index) => [x.id, index])),
+    products = data.products
+      .filter(
+        (x) =>
+          x.available &&
+          (!active || x.category_id === active) &&
+          (!needle || normalize(x.name).includes(needle)),
+      )
+      .sort(
+        (a, b) =>
+          (categoryOrder.get(a.category_id) ?? 9999) -
+            (categoryOrder.get(b.category_id) ?? 9999) ||
+          Number(a.sort_order || 0) - Number(b.sort_order || 0) ||
+          String(a.name).localeCompare(String(b.name), "pt-BR"),
+      );
   renderBanners();
   renderFeatured(products);
-  $("categoryTitle").textContent = needle ? `${products.length} produto${products.length === 1 ? "" : "s"} encontrado${products.length === 1 ? "" : "s"}` : current?.name || "Todos os produtos";
+  $("categoryTitle").textContent = needle
+    ? `${products.length} produto${products.length === 1 ? "" : "s"} encontrado${products.length === 1 ? "" : "s"}`
+    : current?.name || "Todos os produtos";
   $("products").innerHTML = products.length
     ? products
         .map(
@@ -172,15 +221,43 @@ function renderFeatured(products) {
     host = $("featuredProducts");
   host.hidden = !featured.length;
   host.innerHTML = featured.length
-    ? `<div class="featured-head"><div><small>PARA VOCÊ DESCOBRIR</small><h3>Novidades e destaques</h3></div><span>Deslize para conhecer →</span></div><div class="featured-track">${featured.map((p) => `<article class="featured-card">${productMedia(p,"featured-image")}<div class="featured-copy"><strong>${escape(p.name)}</strong><small>${money.format(p.source_price ?? p.price)}</small></div><button data-add="${p.id}" aria-label="Adicionar ${escape(p.name)}">+</button></article>`).join("")}</div>`
+    ? `<div class="featured-head"><div><small>PARA VOCÊ DESCOBRIR</small><h3>Novidades e destaques</h3></div><span>Deslize para conhecer →</span></div><div class="featured-track">${featured.map((p) => `<article class="featured-card">${productMedia(p, "featured-image")}<div class="featured-copy"><strong>${escape(p.name)}</strong><small>${money.format(p.source_price ?? p.price)}</small></div><button data-add="${p.id}" aria-label="Adicionar ${escape(p.name)}">+</button></article>`).join("")}</div>`
     : "";
 }
 $("productSearch").oninput = (event) => {
   productSearch = event.target.value;
   render();
 };
-let bannerIndex=0,bannerTimer;
-function renderBanners(){const banners=(data.banners||[]).filter(x=>x.available!==false),host=$('bannerCarousel');clearInterval(bannerTimer);if(!banners.length){host.hidden=true;host.innerHTML='';return}bannerIndex=Math.min(bannerIndex,banners.length-1);host.hidden=false;host.innerHTML=`<div class="banner-track">${banners.map((x,index)=>`<figure class="banner-slide ${index===bannerIndex?'active':''}"><img src="${escape(x.image_url)}" alt="${escape(x.alt_text||x.title||'Destaque do cardápio')}">${x.title?`<figcaption>${escape(x.title)}</figcaption>`:''}</figure>`).join('')}</div>${banners.length>1?`<div class="banner-dots">${banners.map((_,index)=>`<button data-banner-index="${index}" class="${index===bannerIndex?'active':''}" aria-label="Ver destaque ${index+1}"></button>`).join('')}</div>`:''}`;host.querySelectorAll('[data-banner-index]').forEach(button=>button.onclick=()=>{bannerIndex=Number(button.dataset.bannerIndex);renderBanners()});if(banners.length>1&&!matchMedia('(prefers-reduced-motion: reduce)').matches)bannerTimer=setInterval(()=>{bannerIndex=(bannerIndex+1)%banners.length;renderBanners()},5500)}
+let bannerIndex = 0,
+  bannerTimer;
+function renderBanners() {
+  const banners = (data.banners || []).filter((x) => x.available !== false),
+    host = $("bannerCarousel");
+  clearInterval(bannerTimer);
+  if (!banners.length) {
+    host.hidden = true;
+    host.innerHTML = "";
+    return;
+  }
+  bannerIndex = Math.min(bannerIndex, banners.length - 1);
+  host.hidden = false;
+  host.innerHTML = `<div class="banner-track">${banners.map((x, index) => `<figure class="banner-slide ${index === bannerIndex ? "active" : ""}"><img src="${escape(x.image_url)}" alt="${escape(x.alt_text || x.title || "Destaque do cardápio")}">${x.title ? `<figcaption>${escape(x.title)}</figcaption>` : ""}</figure>`).join("")}</div>${banners.length > 1 ? `<div class="banner-dots">${banners.map((_, index) => `<button data-banner-index="${index}" class="${index === bannerIndex ? "active" : ""}" aria-label="Ver destaque ${index + 1}"></button>`).join("")}</div>` : ""}`;
+  host.querySelectorAll("[data-banner-index]").forEach(
+    (button) =>
+      (button.onclick = () => {
+        bannerIndex = Number(button.dataset.bannerIndex);
+        renderBanners();
+      }),
+  );
+  if (
+    banners.length > 1 &&
+    !matchMedia("(prefers-reduced-motion: reduce)").matches
+  )
+    bannerTimer = setInterval(() => {
+      bannerIndex = (bannerIndex + 1) % banners.length;
+      renderBanners();
+    }, 5500);
+}
 function inlineOptions(x, key) {
   const options = Array.isArray(x.observation_options)
     ? x.observation_options
@@ -209,14 +286,36 @@ function renderCart() {
         const productTotal = [...cart.values()]
           .filter((item) => item.id === x.id)
           .reduce((sum, item) => sum + item.qty, 0);
-        return `<div class="cart-item"><div class="cart-item-thumb">${thumb}</div><div class="cart-item-copy"><strong>${escape(x.name)}</strong><small>${money.format(x.price)} cada</small><button class="item-note ${note ? "has-note" : ""}" data-item-note="${escape(key)}" aria-label="${note ? "Editar" : "Adicionar"} observação em ${escape(x.name)}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11.5a7.5 7.5 0 0 1-8 7.48 9.1 9.1 0 0 1-3.63-.9L4 20l1.36-3.64A7.23 7.23 0 0 1 4 12C4 7.86 7.58 4.5 12 4.5s8 3.13 8 7Z"/><path d="M8.5 11.8h.01M12 11.8h.01M15.5 11.8h.01"/></svg><span>${note ? "Editar observação" : required ? "Preencher observação *" : "Adicionar observação"}</span></button>${note ? `<em title="${escape(note)}">${escape(note)}</em>` : ""}</div><div class="cart-item-actions"><div class="qty"><button data-line-dec="${escape(key)}" aria-label="Diminuir quantidade" ${x.qty<=1?'disabled':''}>−</button><b>${x.qty}</b><button data-line-add="${escape(key)}" aria-label="Adicionar outro" ${productTotal >= maximum ? "disabled" : ""}>+</button></div><button class="remove-item" data-line-remove="${escape(key)}" aria-label="Excluir ${escape(x.name)} do pedido"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3M7 7l1 13h8l1-13M10 11v5M14 11v5"/></svg></button></div>${inlineOptions(x, key)}</div>`;
+        const validation = cartValidation.get(key) || "";
+        return `<div class="cart-item ${validation ? "has-validation-error" : ""}" data-cart-key="${escape(key)}"><div class="cart-item-thumb">${thumb}</div><div class="cart-item-copy"><strong>${escape(x.name)}</strong><small>${money.format(x.price)} cada</small><button class="item-note ${note ? "has-note" : ""}" data-item-note="${escape(key)}" aria-label="${note ? "Editar" : "Adicionar"} observação em ${escape(x.name)}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11.5a7.5 7.5 0 0 1-8 7.48 9.1 9.1 0 0 1-3.63-.9L4 20l1.36-3.64A7.23 7.23 0 0 1 4 12C4 7.86 7.58 4.5 12 4.5s8 3.13 8 7Z"/><path d="M8.5 11.8h.01M12 11.8h.01M15.5 11.8h.01"/></svg><span>${note ? "Editar observação" : required ? "Preencher observação *" : "Adicionar observação"}</span></button>${note ? `<em title="${escape(note)}">${escape(note)}</em>` : ""}</div><div class="cart-item-actions"><div class="qty"><button data-line-dec="${escape(key)}" aria-label="Diminuir quantidade" ${x.qty <= 1 ? "disabled" : ""}>−</button><b>${x.qty}</b><button data-line-add="${escape(key)}" aria-label="Adicionar outro" ${productTotal >= maximum ? "disabled" : ""}>+</button></div><button class="remove-item" data-line-remove="${escape(key)}" aria-label="Excluir ${escape(x.name)} do pedido"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3M7 7l1 13h8l1-13M10 11v5M14 11v5"/></svg></button></div>${inlineOptions(x, key)}${validation ? `<div class="item-validation-error" role="alert"><strong>${escape(validation)}</strong><button type="button" data-fix-item="${escape(key)}">VER PRODUTO</button></div>` : ""}</div>`;
       })
       .join("") || '<p class="empty">Seu carrinho está vazio.</p>';
   $("cartCount").textContent = `${count} ${count === 1 ? "item" : "itens"}`;
   $("cartHeaderTotal").textContent = money.format(total);
   $("cartTotal").textContent = money.format(total);
   $("cartButton").classList.toggle("has-items", count > 0);
-  localStorage.setItem("zuqui_cart", JSON.stringify([...cart]));
+  sessionStorage.setItem(cartStorageKey, JSON.stringify([...cart]));
+}
+
+function clearItemValidation(key) {
+  if (!cartValidation.delete(key)) return;
+  $("cartMessage").textContent = "";
+}
+
+function showCartValidation(key, message) {
+  const item = cart.get(key);
+  if (!item) return;
+  cartValidation.set(key, message);
+  renderCart();
+  toggle(true);
+  $("cartMessage").textContent =
+    `${String(item.name || "Produto").toUpperCase()}: ${message.toUpperCase()} Toque em VER PRODUTO para corrigir.`;
+  requestAnimationFrame(() => {
+    const row = document.querySelector(`[data-cart-key="${CSS.escape(key)}"]`);
+    row?.scrollIntoView({ behavior: "smooth", block: "center" });
+    row?.classList.add("validation-attention");
+    row?.querySelector("[data-fix-item]")?.focus();
+  });
 }
 function splitConfigurableQuantities() {
   const normalized = new Map();
@@ -251,7 +350,18 @@ document.addEventListener("click", (e) => {
     lineAdd = e.target.closest("[data-line-add]"),
     lineDec = e.target.closest("[data-line-dec]"),
     lineRemove = e.target.closest("[data-line-remove]"),
-    cat = e.target.closest("[data-cat]");
+    cat = e.target.closest("[data-cat]"),
+    fixItem = e.target.closest("[data-fix-item]");
+  if (fixItem) {
+    const key = fixItem.dataset.fixItem,
+      item = cart.get(key),
+      option = document.querySelector(
+        `[data-item-option="${CSS.escape(key)}"]`,
+      );
+    if (option) return option.focus();
+    if (item) openItemObservation(item, false);
+    return;
+  }
   if (add) {
     if (!data.ordering_enabled)
       return toast("Cardápio disponível somente para consulta.");
@@ -356,6 +466,7 @@ document.addEventListener("click", (e) => {
   }
   if (lineRemove) {
     const item = cart.get(lineRemove.dataset.lineRemove);
+    cartValidation.delete(lineRemove.dataset.lineRemove);
     cart.delete(lineRemove.dataset.lineRemove);
     renderCart();
     if (item) toast(`${item.name} removido do pedido`);
@@ -384,6 +495,7 @@ document.addEventListener("click", (e) => {
     item = cart.get(key);
   if (!item) return;
   item.observation = choice.dataset.optionValue || "";
+  clearItemValidation(key);
   cart.set(key, item);
   $("cartMessage").textContent = "";
   renderCart();
@@ -456,6 +568,7 @@ $("saveItemNote").onclick = () => {
   }
   if (item) {
     item.observation = value;
+    clearItemValidation(editingNoteId);
     if (pendingObservationItem) {
       cart.set(`${item.id}:${crypto.randomUUID()}`, item);
       toast(`${item.name} adicionado com sua escolha`);
@@ -637,8 +750,14 @@ async function submitOrder() {
       toggle(false);
       showOrderResult(true);
       cart.clear();
+      cartValidation.clear();
+      cardClaim = "";
+      cardLabel = "";
+      sessionStorage.removeItem("zuqui_card_claim");
+      sessionStorage.removeItem("zuqui_card_label");
       $("orderNote").value = "";
       renderCart();
+      updateIdentity();
     } else {
       const attempts = (failedOrders.get(fingerprint) || 0) + 1;
       failedOrders.set(fingerprint, attempts);
@@ -652,6 +771,15 @@ async function submitOrder() {
   } catch (e) {
     const attempts = (failedOrders.get(fingerprint) || 0) + 1;
     failedOrders.set(fingerprint, attempts);
+    const invalidEntry = e.productId
+      ? [...cart.entries()].find(
+          ([, item]) => String(item.id) === String(e.productId),
+        )
+      : null;
+    if (invalidEntry) {
+      showCartValidation(invalidEntry[0], e.message || "Revise este produto.");
+      return;
+    }
     toggle(false);
     showOrderResult(
       false,
@@ -688,16 +816,12 @@ $("reviewButton").onclick = () => {
     const hasOptions =
       Array.isArray(missing.observation_options) &&
       missing.observation_options.length;
-    $("cartMessage").textContent = hasOptions
-      ? `Escolha uma opção para ${missing.name}.`
-      : `Preencha a observação obrigatória de ${missing.name}.`;
-    document
-      .querySelector(
-        hasOptions
-          ? `[data-item-option="${missingEntry[0]}"]`
-          : `[data-item-note="${missingEntry[0]}"]`,
-      )
-      ?.focus();
+    showCartValidation(
+      missingEntry[0],
+      hasOptions
+        ? "Precisa escolher uma opção."
+        : "Precisa preencher a observação obrigatória.",
+    );
     return;
   }
   if (!data.ordering_enabled) {
@@ -713,6 +837,20 @@ $("reviewFailedOrder").onclick = () => {
   $("orderResultDialog").close();
   $("reviewButton").textContent = "Ler comanda e enviar";
   toggle(true);
+};
+$("clearCartButton").onclick = () => {
+  if (
+    !cart.size ||
+    confirm("Limpar todos os itens e iniciar um novo pedido?")
+  ) {
+    cart.clear();
+    cartValidation.clear();
+    sessionStorage.removeItem(cartStorageKey);
+    $("cartMessage").textContent = "";
+    renderCart();
+    toggle(false);
+    toast("Carrinho limpo. Novo pedido iniciado.");
+  }
 };
 const updateIdentityBase = updateIdentity;
 updateIdentity = function () {
