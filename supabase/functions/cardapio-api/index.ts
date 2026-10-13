@@ -435,6 +435,19 @@ Deno.serve(async (req) => {
             },
             409,
           );
+        // O catalogo completo era reenviado periodicamente mesmo sem qualquer
+        // alteracao no Raffinato. Alem das Edge invocations, isso produziu
+        // milhoes de UPDATEs nas mesmas poucas milhares de linhas. Uma carga
+        // completa agora so nasce de uma solicitacao explicita do painel.
+        if (!body.request_id)
+          return out(
+            {
+              error:
+                "Sincronizacao automatica desativada. Use Sincronizar no painel quando precisar atualizar o cardapio.",
+              code: "MANUAL_CATALOG_SYNC_REQUIRED",
+            },
+            409,
+          );
         const { data: run, error } = await db
           .from("menu_catalog_sync_runs")
           .insert({
