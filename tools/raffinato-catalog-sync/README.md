@@ -1,6 +1,6 @@
 # Sincronizador do catálogo Raffinato
 
-Versão única do conector do CheckDiário e do cardápio: **2.0.12**. Esta versão processa pedidos e atualiza nome, preço e agrupamento somente quando a sincronização do catálogo é solicitada, preservando os campos editoriais do cardápio.
+Versão única do conector do CheckDiário e do cardápio: **2.0.13**. Esta versão processa pedidos com intervalo seguro, respeita a pausa remota e atualiza nome, preço e agrupamento somente quando a sincronização do catálogo é solicitada, preservando os campos editoriais do cardápio.
 
 Serviço Windows separado do CheckDiário. O SQL Server é acessado somente na rede da loja, a credencial local é protegida por DPAPI e o envio ao site usa HTTPS de saída com token próprio. Dados e permissões não são misturados com o CheckDiário.
 

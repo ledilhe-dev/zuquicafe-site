@@ -293,7 +293,13 @@ Deno.serve(async (req) => {
           .order("requested_at")
           .limit(1)
           .maybeSingle();
-        return out({ request_id: q?.id || null });
+        return out({
+          request_id: q?.id || null,
+          work_requested:
+            !!q ||
+            (!!connector.demand_until &&
+              new Date(connector.demand_until).getTime() > Date.now()),
+        });
       }
       if (action === "catalog_sync_order_pending") {
         const dispatcherVersion = String(body.connector_version || "");
@@ -302,6 +308,7 @@ Deno.serve(async (req) => {
           "2.0.10",
           "2.0.11",
           "2.0.12",
+          "2.0.13",
         ].includes(dispatcherVersion);
         if (preferredDispatcher) {
           await db.from("menu_dispatcher_leases").upsert({
@@ -320,7 +327,7 @@ Deno.serve(async (req) => {
             .gte("last_seen_at", cutoff)
             .maybeSingle();
           if (
-            ["2.0.9", "2.0.10", "2.0.11", "2.0.12"].includes(
+            ["2.0.9", "2.0.10", "2.0.11", "2.0.12", "2.0.13"].includes(
               activeDispatcher?.connector_version,
             )
           )
@@ -329,19 +336,8 @@ Deno.serve(async (req) => {
               delegated_to: activeDispatcher.connector_version,
             });
         }
-        const staleCutoff = new Date(Date.now() - 55_000).toISOString();
-        await db
-          .from("menu_orders")
-          .update({
-            status: "failed",
-            error_message:
-              "Conector local indisponível. O pedido não foi enviado.",
-            sent_at: new Date().toISOString(),
-          })
-          .eq("store_key", storeKey)
-          .eq("source_branch_id", branchId)
-          .eq("status", "pending_integration")
-          .lt("created_at", staleCutoff);
+        // Pedidos pendentes são preservados durante pausa ou indisponibilidade.
+        // Ao reativar, o conector retoma a fila na ordem de criação.
         const { data: q } = await db
           .from("menu_orders")
           .select(
@@ -613,6 +609,11 @@ Deno.serve(async (req) => {
           ordering_enabled: false,
           notice: "Loja ainda não vinculada ao conector.",
         });
+      await db
+        .from("menu_catalog_connectors")
+        .update({ demand_until: new Date(Date.now() + 15 * 60_000).toISOString() })
+        .eq("store_key", connector.store_key)
+        .eq("raffinato_branch_id", connector.raffinato_branch_id);
       const { data: categories } = await db
         .from("menu_categories")
         .select("*")
@@ -1406,6 +1407,11 @@ Deno.serve(async (req) => {
         .single();
       if (!connector?.connection_tested_at)
         return out({ error: "Conector da loja indisponível." }, 503);
+      await db
+        .from("menu_catalog_connectors")
+        .update({ demand_until: new Date(Date.now() + 15 * 60_000).toISOString() })
+        .eq("store_key", connector.store_key)
+        .eq("raffinato_branch_id", connector.raffinato_branch_id);
       const dispatcherCutoff = new Date(Date.now() - 15_000).toISOString(),
         { data: dispatcher } = await db
           .from("menu_dispatcher_leases")
