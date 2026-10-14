@@ -1,4 +1,4 @@
-project_id = "pcmqxbwxpzskkyjmtmrv"
+project_id = "checkdiario-hostinger-cardapio"
 
 [functions.cardapio-api]
 verify_jwt = false
