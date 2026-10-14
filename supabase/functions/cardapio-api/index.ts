@@ -209,17 +209,22 @@ Deno.serve(async (req) => {
       return out({ ok: true, already_open: false, delivery: "admin_queue" });
     }
     if (action === "login_v2") {
-      if (String(body.username).trim().toLowerCase() !== "admin")
-        return out({ error: "Credenciais invalidas" }, 401);
       const auth = createClient(url, anon, { auth: { persistSession: false } }),
-        email = Deno.env.get("CARDAPIO_ADMIN_EMAIL");
+        email = Deno.env.get("CARDAPIO_ADMIN_EMAIL")?.trim().toLowerCase(),
+        requestedEmail = String(body.email || "").trim().toLowerCase();
       if (!email) throw new Error("Administrador ainda nao configurado.");
+      if (!requestedEmail || requestedEmail !== email)
+        return out({ error: "Credenciais invalidas" }, 401);
       const { data, error } = await auth.auth.signInWithPassword({
-        email,
+        email: requestedEmail,
         password: String(body.password || ""),
       });
       if (error || !data.session)
         return out({ error: "Credenciais invalidas" }, 401);
+      if (!data.user.email_confirmed_at) {
+        await auth.auth.signOut();
+        return out({ error: "Confirme o e-mail antes de entrar." }, 403);
+      }
       const { data: adminProfile } = await db
         .from("menu_admin_profiles")
         .select("must_change_password")
@@ -689,17 +694,22 @@ Deno.serve(async (req) => {
       });
     }
     if (action === "login") {
-      if (String(body.username).trim().toLowerCase() !== "admin")
-        return out({ error: "Credenciais inválidas" }, 401);
       const auth = createClient(url, anon, { auth: { persistSession: false } }),
-        email = Deno.env.get("CARDAPIO_ADMIN_EMAIL");
+        email = Deno.env.get("CARDAPIO_ADMIN_EMAIL")?.trim().toLowerCase(),
+        requestedEmail = String(body.email || "").trim().toLowerCase();
       if (!email) throw new Error("Administrador ainda não configurado.");
+      if (!requestedEmail || requestedEmail !== email)
+        return out({ error: "Credenciais inválidas" }, 401);
       const { data, error } = await auth.auth.signInWithPassword({
-        email,
+        email: requestedEmail,
         password: String(body.password || ""),
       });
       if (error || !data.session)
         return out({ error: "Credenciais inválidas" }, 401);
+      if (!data.user.email_confirmed_at) {
+        await auth.auth.signOut();
+        return out({ error: "Confirme o e-mail antes de entrar." }, 403);
+      }
       const { data: profile } = await db
         .from("menu_admin_profiles")
         .select("must_change_password")
