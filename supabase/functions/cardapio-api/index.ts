@@ -374,7 +374,7 @@ Deno.serve(async (req) => {
           "2.0.11",
           "2.0.12",
           "2.0.13",
-          "2.0.14",
+          "2.0.14", "2.0.15",
         ].includes(dispatcherVersion);
         if (preferredDispatcher) {
           await db.from("menu_dispatcher_leases").upsert({
@@ -393,7 +393,7 @@ Deno.serve(async (req) => {
             .gte("last_seen_at", cutoff)
             .maybeSingle();
           if (
-            ["2.0.9", "2.0.10", "2.0.11", "2.0.12", "2.0.13", "2.0.14"].includes(
+            ["2.0.9", "2.0.10", "2.0.11", "2.0.12", "2.0.13", "2.0.14", "2.0.15"].includes(
               activeDispatcher?.connector_version,
             )
           )
