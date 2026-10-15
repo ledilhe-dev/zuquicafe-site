@@ -66,6 +66,13 @@ Deno.serve(async (req) => {
     db = createClient(url, service, { auth: { persistSession: false } }),
     body = await req.json().catch(() => ({})),
     action = String(body.action || "");
+  if (action.startsWith("catalog_sync_") || action === "connector_dispatch_bootstrap") {
+    console.log("connector_request", {
+      action,
+      connector_version: String(body.connector_version || ""),
+      id_filial: body.id_filial ?? null,
+    });
+  }
   try {
     if (action === "connector_dispatch_bootstrap") {
       const instanceId = String(body.connector_instance_id || "").trim(),
@@ -120,7 +127,7 @@ Deno.serve(async (req) => {
         .eq("id", connector.id);
       if (updateError) throw updateError;
       return out({
-        backend_url: `${url}/functions/v1/cardapio-api`,
+        backend_url: `${Deno.env.get("PUBLIC_API_URL") || "https://api.checkdiario.com.br"}/functions/v1/cardapio-api`,
         sync_token: rawToken,
         id_filial: Number(connector.raffinato_branch_id),
         store_key: connector.store_key,
@@ -326,15 +333,24 @@ Deno.serve(async (req) => {
       action !== "catalog_sync_request"
     ) {
       const token = req.headers.get("x-catalog-token") || "";
-      if (!token) return out({ error: "Token do conector obrigatório." }, 401);
+      if (!token) {
+        console.warn("connector_auth_failed", { action, reason: "missing_token" });
+        return out({ error: "Token do conector obrigatório." }, 401);
+      }
       const { data: connector } = await db
         .from("menu_catalog_connectors")
         .select("*,menu_stores!inner(id,store_key,name,active)")
         .eq("token_hash", await sha256(token))
         .eq("active", true)
         .single();
-      if (!connector || !connector.store_id || !connector.menu_stores?.active)
+      if (!connector || !connector.store_id || !connector.menu_stores?.active) {
+        console.warn("connector_auth_failed", {
+          action,
+          connector_version: String(body.connector_version || ""),
+          reason: "token_or_link_not_found",
+        });
         return out({ error: "Conector não vinculado a uma loja ativa." }, 403);
+      }
       if (Number(body.id_filial) !== Number(connector.raffinato_branch_id))
         return out(
           { error: "Filial não pertence ao vínculo deste conector." },
@@ -369,6 +385,22 @@ Deno.serve(async (req) => {
           branch_id: branchId,
           installation_id: connector.installation_id,
         });
+      }
+      if (action === "catalog_sync_acceptance_result") {
+        const passed = body.passed === true;
+        await db.from("menu_catalog_connectors").update({
+          connection_tested_at: new Date().toISOString(),
+          connection_test_error: passed ? null : String(body.error || "Aceite reprovado.").slice(0, 1000),
+        }).eq("id", connector.id);
+        if (passed) {
+          await db.from("menu_settings").update({
+            test_validated: true,
+            test_validated_at: new Date().toISOString(),
+            test_idvenda: body.idvenda == null ? null : String(body.idvenda),
+            test_numeropedido: body.numeropedido == null ? null : String(body.numeropedido),
+          }).eq("id", true);
+        }
+        return out({ ok: true, passed });
       }
       if (action === "catalog_sync_pending") {
         const { data: q } = await db
@@ -406,7 +438,7 @@ Deno.serve(async (req) => {
           "2.0.11",
           "2.0.12",
           "2.0.13",
-          "2.0.14", "2.0.15", "2.0.16", "2.0.17", "2.0.18", "2.0.19", "2.0.20", "2.0.21",
+          "2.0.14", "2.0.15", "2.0.16", "2.0.17", "2.0.18", "2.0.19", "2.0.20", "2.0.21", "2.0.22",
         ].includes(dispatcherVersion);
         if (preferredDispatcher) {
           await db.from("menu_dispatcher_leases").upsert({
@@ -425,7 +457,7 @@ Deno.serve(async (req) => {
             .gte("last_seen_at", cutoff)
             .maybeSingle();
           if (
-            ["2.0.9", "2.0.10", "2.0.11", "2.0.12", "2.0.13", "2.0.14", "2.0.15", "2.0.16", "2.0.17", "2.0.18", "2.0.19", "2.0.20", "2.0.21"].includes(
+            ["2.0.9", "2.0.10", "2.0.11", "2.0.12", "2.0.13", "2.0.14", "2.0.15", "2.0.16", "2.0.17", "2.0.18", "2.0.19", "2.0.20", "2.0.21", "2.0.22"].includes(
               activeDispatcher?.connector_version,
             )
           )
