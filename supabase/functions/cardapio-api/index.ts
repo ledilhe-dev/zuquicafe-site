@@ -88,6 +88,15 @@ Deno.serve(async (req) => {
           .maybeSingle();
       if (!trusted)
         return out({ error: "Conector não autorizado para esta loja." }, 403);
+      const { data: integration } = await checkdiario
+        .from("raffinato_integracoes")
+        .select("loja_id,connection_profile_id,raffinato_filial_id")
+        .eq("empresa_id", expectedCompany)
+        .eq("connector_instance_id", instanceId)
+        .eq("status", "ativa")
+        .maybeSingle();
+      if (!integration?.connection_profile_id)
+        return out({ error: "Perfil SQL do Raffinato não localizado para esta instalação." }, 409);
       const { data: connector } = await db
         .from("menu_catalog_connectors")
         .select("id,store_key,raffinato_branch_id")
@@ -114,6 +123,8 @@ Deno.serve(async (req) => {
         sync_token: rawToken,
         id_filial: Number(connector.raffinato_branch_id),
         store_key: connector.store_key,
+        connection_profile_id: integration.connection_profile_id,
+        checkdiario_store_id: integration.loja_id,
       });
     }
     if (action === "admin_service_requests") {
@@ -394,7 +405,7 @@ Deno.serve(async (req) => {
           "2.0.11",
           "2.0.12",
           "2.0.13",
-          "2.0.14", "2.0.15", "2.0.16", "2.0.17",
+          "2.0.14", "2.0.15", "2.0.16", "2.0.17", "2.0.18",
         ].includes(dispatcherVersion);
         if (preferredDispatcher) {
           await db.from("menu_dispatcher_leases").upsert({
@@ -413,7 +424,7 @@ Deno.serve(async (req) => {
             .gte("last_seen_at", cutoff)
             .maybeSingle();
           if (
-            ["2.0.9", "2.0.10", "2.0.11", "2.0.12", "2.0.13", "2.0.14", "2.0.15", "2.0.16", "2.0.17"].includes(
+            ["2.0.9", "2.0.10", "2.0.11", "2.0.12", "2.0.13", "2.0.14", "2.0.15", "2.0.16", "2.0.17", "2.0.18"].includes(
               activeDispatcher?.connector_version,
             )
           )
