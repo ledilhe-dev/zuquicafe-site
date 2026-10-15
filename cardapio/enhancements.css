@@ -1705,13 +1705,13 @@ dialog[open] {
   font-size: 10px;
   font-style: normal;
 }
-.additional-notes {
+.item-observations {
   display: flex;
   flex-wrap: wrap;
   gap: 5px;
   margin-top: 7px;
 }
-.additional-notes > span {
+.item-observations > span {
   display: inline-flex;
   align-items: center;
   gap: 5px;
@@ -1724,7 +1724,7 @@ dialog[open] {
   font-size: 10px;
   line-height: 1.2;
 }
-.additional-notes button {
+.item-observations button {
   display: grid;
   width: 17px;
   height: 17px;

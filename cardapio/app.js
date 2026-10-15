@@ -56,6 +56,11 @@ function presetObservation(item) {
       ? item.observation_options.map(String)
       : [],
     current = String(item?.observation || "");
+  if (Array.isArray(item?.observations))
+    return String(
+      item.observations.find((value) => options.includes(String(value))) ||
+        (options.length ? "" : item.observations[0] || ""),
+    );
   if (item?.predefined_observation != null)
     return String(item.predefined_observation);
   return (
@@ -64,15 +69,18 @@ function presetObservation(item) {
     ) || (options.length ? "" : current)
   );
 }
-function additionalObservations(item) {
-  if (Array.isArray(item?.additional_observations))
-    return item.additional_observations.map(String).filter(Boolean);
+function itemObservations(item) {
+  if (Array.isArray(item?.observations))
+    return item.observations.map(String).map((value) => value.trim()).filter(Boolean);
   const preset = presetObservation(item),
     current = String(item?.observation || ""),
+    oldNotes = Array.isArray(item?.additional_observations)
+      ? item.additional_observations.map(String).filter(Boolean)
+      : [],
     legacyAdditional = preset && current.startsWith(`${preset} · `)
       ? current.slice(preset.length + 3).trim()
       : "";
-  return legacyAdditional ? [legacyAdditional] : [];
+  return [preset, ...oldNotes, legacyAdditional].filter(Boolean);
 }
 async function api(action, body = {}) {
   if (!cfg.apiUrl) throw new Error("Cardápio ainda não conectado ao servidor.");
@@ -108,8 +116,7 @@ api = async function (action, body = {}) {
       items: [...cart.values()].map((x) => ({
         product_id: x.id,
         quantity: x.qty,
-        observation: presetObservation(x).slice(0, 200),
-        additional_observations: additionalObservations(x)
+        observations: itemObservations(x)
           .map((value) => String(value || "").trim().slice(0, 200))
           .filter(Boolean),
       })),
@@ -301,7 +308,13 @@ function renderCart() {
       .map(([key, x]) => {
         count += x.qty;
         total += x.qty * x.price;
-        const additionalNotes = additionalObservations(x),
+        const configuredOptions = Array.isArray(x.observation_options)
+            ? x.observation_options.map(String)
+            : [],
+          notes = itemObservations(x),
+          editableNotes = notes.filter(
+            (note) => !configuredOptions.includes(String(note)),
+          ),
           maximum = Number(x.max_quantity || 99),
           thumb = x.image_url
             ? `<img src="${escape(x.image_url)}" alt="" loading="lazy">`
@@ -310,8 +323,8 @@ function renderCart() {
           .filter((item) => item.id === x.id)
           .reduce((sum, item) => sum + item.qty, 0);
         const validation = cartValidation.get(key) || "";
-        const noteChips = additionalNotes.length
-          ? `<div class="additional-notes">${additionalNotes.map((note, index) => `<span>${escape(note)}<button type="button" data-remove-note="${escape(key)}" data-note-index="${index}" aria-label="Remover observação ${escape(note)}">×</button></span>`).join("")}</div>`
+        const noteChips = editableNotes.length
+          ? `<div class="item-observations">${editableNotes.map((note) => `<span>${escape(note)}<button type="button" data-remove-note="${escape(key)}" data-note-value="${escape(note)}" aria-label="Remover observação ${escape(note)}">×</button></span>`).join("")}</div>`
           : "";
         return `<div class="cart-item ${validation ? "has-validation-error" : ""}" data-cart-key="${escape(key)}"><div class="cart-item-thumb">${thumb}</div><div class="cart-item-copy"><strong>${escape(x.name)}</strong><small>${money.format(x.price)} cada</small><button class="item-note" data-item-note="${escape(key)}" aria-label="Adicionar observação em ${escape(x.name)}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span>Observação</span></button>${noteChips}</div><div class="cart-item-actions"><div class="qty"><button data-line-dec="${escape(key)}" aria-label="Diminuir quantidade" ${x.qty <= 1 ? "disabled" : ""}>−</button><b>${x.qty}</b><button data-line-add="${escape(key)}" aria-label="Adicionar outro" ${productTotal >= maximum ? "disabled" : ""}>+</button></div><button class="remove-item" data-line-remove="${escape(key)}" aria-label="Excluir ${escape(x.name)} do pedido"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3M7 7l1 13h8l1-13M10 11v5M14 11v5"/></svg></button></div>${inlineOptions(x, key)}${validation ? `<div class="item-validation-error" role="alert"><strong>${escape(validation)}</strong><button type="button" data-fix-item="${escape(key)}">VER PRODUTO</button></div>` : ""}</div>`;
       })
@@ -520,8 +533,12 @@ document.addEventListener("click", (e) => {
   const key = choice.dataset.itemOption,
     item = cart.get(key);
   if (!item) return;
-  item.predefined_observation = choice.dataset.optionValue || "";
-  item.observation = item.predefined_observation;
+  const oldPreset = presetObservation(item),
+    observations = itemObservations(item).filter(
+      (value) => value !== oldPreset,
+    ),
+    chosen = choice.dataset.optionValue || "";
+  item.observations = [chosen, ...observations].filter(Boolean);
   clearItemValidation(key);
   cart.set(key, item);
   $("cartMessage").textContent = "";
@@ -532,11 +549,11 @@ document.addEventListener("click", (e) => {
   if (removeNote) {
     const key = removeNote.dataset.removeNote,
       item = cart.get(key),
-      notes = Array.isArray(item?.additional_observations)
-        ? [...item.additional_observations]
-        : [];
-    notes.splice(Number(removeNote.dataset.noteIndex), 1);
-    item.additional_observations = notes;
+      noteValue = String(removeNote.dataset.noteValue || ""),
+      notes = itemObservations(item),
+      noteIndex = notes.indexOf(noteValue);
+    if (noteIndex >= 0) notes.splice(noteIndex, 1);
+    item.observations = notes;
     cart.set(key, item);
     renderCart();
     return;
@@ -563,8 +580,8 @@ function openItemObservation(item, requireBeforeAdding = false) {
     )
     .join("");
   $("itemNoteChoices").hidden = !requireBeforeAdding || !options.length;
-  // A escolha obrigatória e cada observação adicional são registros
-  // independentes no mesmo item do pedido.
+  // A primeira observação configurada permanece obrigatória e travada;
+  // o botão + Obs inclui novas observações no mesmo item.
   $("itemNoteCustomLabel").hidden = requireBeforeAdding;
   $("clearItemNote").hidden = requireBeforeAdding;
   $("itemNoteText").value = customNote;
@@ -621,14 +638,15 @@ $("saveItemNote").onclick = () => {
   }
   if (item) {
     if (hasPresetOptions && presetValue) {
-      item.predefined_observation = presetValue;
-      item.observation = presetValue;
+      item.observations = [
+        presetValue,
+        ...itemObservations(item).filter(
+          (value) => !item.observation_options.includes(value),
+        ),
+      ];
     }
     if (!pendingObservationItem && customValue) {
-      item.additional_observations = [
-        ...additionalObservations(item),
-        customValue,
-      ];
+      item.observations = [...itemObservations(item), customValue];
     }
     clearItemValidation(editingNoteId);
     if (pendingObservationItem) {
@@ -748,7 +766,7 @@ $("scanFromCart").onclick = () => startScanner("cart");
 function orderFingerprint() {
   return JSON.stringify(
     [...cart.values()]
-      .map((x) => [x.id, x.qty, String(x.observation || "")])
+      .map((x) => [x.id, x.qty, itemObservations(x)])
       .sort(),
   );
 }

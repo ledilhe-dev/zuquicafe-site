@@ -514,11 +514,17 @@ Deno.serve(async (req) => {
             { error: "Pedido não pertence a esta fila ou já foi concluído." },
             409,
           );
+        const raffinatoError = String(result?.error || rawResult?.error || ""),
+          customerError = /extrato\s+j[aá]\s+foi\s+impresso/i.test(
+              raffinatoError,
+            )
+            ? "O extrato deste pedido já foi impresso. Por favor, chame o garçom."
+            : raffinatoError;
         const errorMessage = timedOut
           ? "Timeout: resultado incerto; confira o Raffinato antes de qualquer nova tentativa."
           : success
             ? null
-            : String(body.error || "A API não confirmou gravado: true").slice(
+            : String(customerError || body.error || "A API não confirmou gravado: true").slice(
                 0,
                 1000,
               );
@@ -1728,12 +1734,11 @@ Deno.serve(async (req) => {
         items = requested.map((x: any) => {
           const p = products.find((v: any) => v.id === x.product_id),
             q = Math.floor(Number(x.quantity)),
-            predefinedObservation = String(x.observation || "")
-              .trim()
-              .slice(0, 200),
-            additionalObservations = (Array.isArray(x.additional_observations)
-              ? x.additional_observations
-              : [])
+            observations = (Array.isArray(x.observations)
+              ? x.observations
+              : [x.observation, ...(Array.isArray(x.additional_observations)
+                ? x.additional_observations
+                : [])])
               .map((value: any) => String(value || "").trim().slice(0, 200))
               .filter(Boolean)
               .slice(0, 10),
@@ -1741,7 +1746,10 @@ Deno.serve(async (req) => {
             maximum = Number(p?.max_quantity || 99),
             configuredOptions = Array.isArray(p?.observation_options)
               ? p.observation_options
-              : [];
+              : [],
+            requiredObservation = observations.find((value: string) =>
+              configuredOptions.includes(value)
+            ) || "";
           const productTotal = requestedTotals.get(String(x.product_id)) || 0;
           if (
             !p ||
@@ -1755,27 +1763,13 @@ Deno.serve(async (req) => {
               "invalid_quantity",
               String(p?.id || x.product_id || ""),
             );
-          if (p.observation_required && !predefinedObservation)
+          if (p.observation_required && !requiredObservation)
             throw new OrderValidationError(
               `${p.display_name || p.source_name || p.name} precisa de uma escolha obrigatória.`,
               "missing_required_observation",
               String(p.id),
             );
-          if (
-            predefinedObservation &&
-            configuredOptions.length &&
-            !configuredOptions.includes(predefinedObservation)
-          )
-            throw new OrderValidationError(
-              `A opção escolhida para ${p.display_name || p.source_name || p.name} não é válida.`,
-              "invalid_observation_option",
-              String(p.id),
-            );
-          const observationLines = [
-              predefinedObservation,
-              ...additionalObservations,
-            ].filter(Boolean),
-            formattedObservation = observationLines.join("\n").slice(0, 200);
+          const formattedObservation = observations.join("\n").slice(0, 200);
           return {
             product_id: p.id,
             raffinato_product_id: p.raffinato_product_id,
@@ -1783,8 +1777,6 @@ Deno.serve(async (req) => {
             quantity: q,
             unit_price: p.source_price ?? p.price,
             observation: formattedObservation || null,
-            predefined_observation: predefinedObservation || null,
-            additional_observations: additionalObservations,
             barcode: p.source_barcode || null,
             unit: p.source_unit || "UN",
             category_tree: p.source_category_tree || null,
