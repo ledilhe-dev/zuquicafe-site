@@ -334,6 +334,15 @@ Deno.serve(async (req) => {
         .from("menu_catalog_connectors")
         .update({ last_seen_at: new Date().toISOString() })
         .eq("id", connector.id);
+      const reportedVersion = String(body.connector_version || "").trim();
+      if (reportedVersion) {
+        await db.from("menu_dispatcher_leases").upsert({
+          store_key: storeKey,
+          source_branch_id: branchId,
+          connector_version: reportedVersion,
+          last_seen_at: new Date().toISOString(),
+        });
+      }
       if (action === "catalog_sync_connection_test") {
         await db
           .from("menu_catalog_connectors")
@@ -365,6 +374,17 @@ Deno.serve(async (req) => {
             (!!connector.demand_until &&
               new Date(connector.demand_until).getTime() > Date.now()),
         });
+      }
+      if (action === "catalog_sync_request_fail") {
+        const requestId = String(body.request_id || "").trim(),
+          message = String(body.error || "Falha local antes do início da sincronização.").slice(0, 1000);
+        const { error } = await db.from("menu_catalog_sync_requests").update({
+          status: "failed",
+          finished_at: new Date().toISOString(),
+          error_message: message,
+        }).eq("id", requestId).eq("store_key", storeKey).eq("status", "pending");
+        if (error) throw error;
+        return out({ ok: true });
       }
       if (action === "catalog_sync_order_pending") {
         const dispatcherVersion = String(body.connector_version || "");
