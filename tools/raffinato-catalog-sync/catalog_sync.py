@@ -7,7 +7,7 @@ import pyodbc,requests
 
 BASE=Path(sys.executable).resolve().parent if getattr(sys,'frozen',False) else Path(__file__).resolve().parent; CONFIG=BASE/'catalog-sync.dat'; LOG=BASE/'catalog-sync.log'
 logging.basicConfig(filename=LOG,level=logging.INFO,format='%(asctime)s %(levelname)s %(message)s',encoding='utf-8')
-CONNECTOR_VERSION='2.0.19'
+CONNECTOR_VERSION='2.0.20'
 SQL=""";WITH PrecosVigentes AS (
  SELECT X.IdProduto,X.Valor,
   ROW_NUMBER() OVER(PARTITION BY X.IdProduto ORDER BY ISNULL(X.DataInicial,'19000101') DESC,X.Id DESC) rn
