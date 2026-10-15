@@ -32,6 +32,13 @@ class OrderPayloadTests(unittest.TestCase):
         items = catalog_sync.build_order_payload(source,'2026-10-01T22:00:00-03:00')['pedido']['itens']
         self.assertEqual([item['observacao'] for item in items],['SEM GELO',''])
 
+    def test_keeps_required_and_additional_observations_on_separate_lines(self):
+        source = {'guid':'4d991ebc-57a0-41dc-b95f-4be19413110d','waiter_id':20,'reference':'MESA 01','print_sector_id':3,'card_code':'24','items':[
+            {'raffinato_product_id':303,'name':'CAFE PASSADO','quantity':1,'unit_price':6.99,'observation':'COM LEITE\nSEM ACUCAR\nBEM QUENTE'}]}
+        item = catalog_sync.build_order_payload(source,'2026-10-02T00:11:12')['pedido']['itens'][0]
+        self.assertEqual(item['quantidade'],1.0)
+        self.assertEqual(item['observacao'],'COM LEITE\nSEM ACUCAR\nBEM QUENTE')
+
     def test_uses_same_local_time_for_order_and_items(self):
         source = {'guid':'51f27909-955d-4705-b0d3-b750992c5e27','waiter_id':20,'reference':'MESA 01','print_sector_id':3,'card_code':'24','items':[{'raffinato_product_id':101,'quantity':1,'unit_price':3.99}]}
         payload = catalog_sync.build_order_payload(source,'2026-10-02T00:11:12')

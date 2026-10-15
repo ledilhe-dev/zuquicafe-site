@@ -1728,9 +1728,15 @@ Deno.serve(async (req) => {
         items = requested.map((x: any) => {
           const p = products.find((v: any) => v.id === x.product_id),
             q = Math.floor(Number(x.quantity)),
-            observation = String(x.observation || "")
+            predefinedObservation = String(x.observation || "")
               .trim()
               .slice(0, 200),
+            additionalObservations = (Array.isArray(x.additional_observations)
+              ? x.additional_observations
+              : [])
+              .map((value: any) => String(value || "").trim().slice(0, 200))
+              .filter(Boolean)
+              .slice(0, 10),
             minimum = Number(p?.min_quantity || 1),
             maximum = Number(p?.max_quantity || 99),
             configuredOptions = Array.isArray(p?.observation_options)
@@ -1749,29 +1755,36 @@ Deno.serve(async (req) => {
               "invalid_quantity",
               String(p?.id || x.product_id || ""),
             );
-          if (p.observation_required && !observation)
+          if (p.observation_required && !predefinedObservation)
             throw new OrderValidationError(
               `${p.display_name || p.source_name || p.name} precisa de uma escolha obrigatória.`,
               "missing_required_observation",
               String(p.id),
             );
           if (
-            observation &&
+            predefinedObservation &&
             configuredOptions.length &&
-            !configuredOptions.includes(observation)
+            !configuredOptions.includes(predefinedObservation)
           )
             throw new OrderValidationError(
               `A opção escolhida para ${p.display_name || p.source_name || p.name} não é válida.`,
               "invalid_observation_option",
               String(p.id),
             );
+          const observationLines = [
+              predefinedObservation,
+              ...additionalObservations,
+            ].filter(Boolean),
+            formattedObservation = observationLines.join("\n").slice(0, 200);
           return {
             product_id: p.id,
             raffinato_product_id: p.raffinato_product_id,
             name: p.source_name || p.name,
             quantity: q,
             unit_price: p.source_price ?? p.price,
-            observation: observation || null,
+            observation: formattedObservation || null,
+            predefined_observation: predefinedObservation || null,
+            additional_observations: additionalObservations,
             barcode: p.source_barcode || null,
             unit: p.source_unit || "UN",
             category_tree: p.source_category_tree || null,

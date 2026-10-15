@@ -1705,6 +1705,38 @@ dialog[open] {
   font-size: 10px;
   font-style: normal;
 }
+.additional-notes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 7px;
+}
+.additional-notes > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  max-width: 100%;
+  padding: 4px 5px 4px 8px;
+  border: 1px solid #cce0d1;
+  border-radius: 999px;
+  color: #345b45;
+  background: #eef7f0;
+  font-size: 10px;
+  line-height: 1.2;
+}
+.additional-notes button {
+  display: grid;
+  width: 17px;
+  height: 17px;
+  padding: 0;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  color: #6d4b43;
+  background: #fff;
+  font-size: 14px;
+  line-height: 1;
+}
 
 .inline-options {
   margin-top: 10px;
