@@ -212,6 +212,36 @@
         ><button onclick="this.closest('dialog').close()">Fechar</button>
       </div>
     </dialog>
+    <dialog id="bannerEditor" class="banner-editor-dialog">
+      <form id="bannerEditorForm">
+        <div class="editor-head">
+          <div><small>DESTAQUE DO CARDÁPIO</small><h2>Novo banner</h2></div>
+          <button type="button" id="closeBannerEditor" class="ghost" aria-label="Fechar">×</button>
+        </div>
+        <p class="banner-editor-intro">Envie uma imagem horizontal. Nós ajustamos automaticamente para 1600 × 600 pixels.</p>
+        <div id="bannerDrop" class="banner-drop" tabindex="0" role="button" aria-label="Selecionar ou arrastar imagem">
+          <input id="bannerFile" type="file" accept="image/jpeg,image/png,image/webp" hidden />
+          <div id="bannerDropEmpty" class="banner-drop-empty">
+            <span class="banner-upload-icon" aria-hidden="true">↑</span>
+            <strong>Arraste sua imagem para cá</strong>
+            <p>ou clique para selecionar do computador</p>
+            <small>JPG, PNG ou WebP · até 15 MB</small>
+          </div>
+          <img id="bannerPreview" alt="Pré-visualização do banner" hidden />
+          <button id="changeBannerImage" type="button" class="banner-change ghost" hidden>Trocar imagem</button>
+        </div>
+        <div class="banner-fields">
+          <label>Título ou orientação<input id="bannerTitle" maxlength="140" placeholder="Ex.: Café da manhã especial" /></label>
+          <label>Ordem de exibição<input id="bannerOrder" type="number" min="0" step="1" required /></label>
+        </div>
+        <p id="bannerEditorMessage" class="editor-message" aria-live="polite"></p>
+        <div id="bannerUploadProgress" class="banner-upload-progress" hidden><span></span><small>Enviando e publicando o banner…</small></div>
+        <div class="editor-actions">
+          <button id="cancelBannerEditor" type="button" class="ghost">Cancelar</button>
+          <button id="saveBanner" type="submit" disabled>Publicar banner</button>
+        </div>
+      </form>
+    </dialog>
     <dialog id="referenceEditor" class="editor-dialog reference-dialog">
       <form id="referenceEditorForm">
         <div class="editor-head">
@@ -869,6 +899,6 @@
       }
     </style>
     <script src="../cardapio-config.js?v=20261014-hostinger"></script>
-    <script type="module" src="./app.js?v=20261015-connector-2023"></script>
+    <script type="module" src="./app.js?v=20261015-banner-editor-1"></script>
   </body>
 </html>

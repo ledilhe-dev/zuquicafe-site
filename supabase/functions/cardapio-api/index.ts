@@ -8,6 +8,12 @@ const cors = {
 };
 const out = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: cors });
+const publicStorageUrl = (bucket: string, path: string) => {
+  const base = (Deno.env.get("SUPABASE_PUBLIC_URL") || Deno.env.get("SUPABASE_URL") || "")
+    .replace(/\/$/, "");
+  const safePath = path.split("/").map(encodeURIComponent).join("/");
+  return `${base}/storage/v1/object/public/${encodeURIComponent(bucket)}/${safePath}`;
+};
 class OrderValidationError extends Error {
   code: string;
   productId: string;
@@ -1250,10 +1256,10 @@ Deno.serve(async (req) => {
             upsert: false,
           });
       if (error) throw error;
-      const { data: publicData } = db.storage
-        .from("menu-product-images")
-        .getPublicUrl(path);
-      return out({ ok: true, image_url: publicData.publicUrl });
+      return out({
+        ok: true,
+        image_url: publicStorageUrl("menu-product-images", path),
+      });
     }
     if (action === "upload_banner_image") {
       const base64 = String(body.data_base64 || "").replace(
@@ -1279,10 +1285,10 @@ Deno.serve(async (req) => {
             upsert: false,
           });
       if (error) throw error;
-      const { data: publicData } = db.storage
-        .from("menu-product-images")
-        .getPublicUrl(path);
-      return out({ ok: true, image_url: publicData.publicUrl });
+      return out({
+        ok: true,
+        image_url: publicStorageUrl("menu-product-images", path),
+      });
     }
     if (action === "upsert_banner") {
       const row = {
