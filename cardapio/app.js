@@ -264,7 +264,11 @@ function inlineOptions(x, key) {
     : [];
   if (!options.length) return "";
   const choices = [...(!x.observation_required ? [null] : []), ...options];
-  return `<fieldset class="inline-options ${x.observation_required ? "required" : ""}"><legend>${x.observation_required ? "Escolha uma opção obrigatória" : "Escolha uma opção (opcional)"}</legend><div class="inline-options-list">${choices.map((option) => `<button type="button" class="inline-option ${option === null ? "optional-clear " : ""}${String(x.observation || "") === String(option || "") ? "selected" : ""}" data-item-option="${escape(key)}" data-option-value="${escape(option || "")}">${escape(option || "Sem preferência")}</button>`).join("")}</div></fieldset>`;
+  const selected = String(
+    x.predefined_observation ??
+      (options.includes(String(x.observation || "")) ? x.observation : ""),
+  );
+  return `<fieldset class="inline-options ${x.observation_required ? "required" : ""}"><legend>${x.observation_required ? "Escolha uma opção" : "Preferência (opcional)"}${x.observation_required ? '<span>Obrigatório</span>' : ""}</legend><div class="inline-options-list">${choices.map((option) => `<button type="button" class="inline-option ${option === null ? "optional-clear " : ""}${selected === String(option || "") ? "selected" : ""}" data-item-option="${escape(key)}" data-option-value="${escape(option || "")}">${escape(option || "Sem preferência")}</button>`).join("")}</div></fieldset>`;
 }
 function renderCart() {
   let count = 0,
@@ -274,7 +278,20 @@ function renderCart() {
       .map(([key, x]) => {
         count += x.qty;
         total += x.qty * x.price;
-        const note = String(x.observation || ""),
+        const configuredOptions = Array.isArray(x.observation_options)
+            ? x.observation_options
+            : [],
+          storedPreset = String(
+            x.predefined_observation ??
+              (configuredOptions.includes(String(x.observation || ""))
+                ? x.observation
+                : ""),
+          ),
+          note = String(
+            x.custom_observation ??
+              (storedPreset ? "" : x.observation || ""),
+          ),
+          fullNote = String(x.observation || ""),
           required = !!x.observation_required,
           options = Array.isArray(x.observation_options)
             ? x.observation_options
@@ -287,7 +304,7 @@ function renderCart() {
           .filter((item) => item.id === x.id)
           .reduce((sum, item) => sum + item.qty, 0);
         const validation = cartValidation.get(key) || "";
-        return `<div class="cart-item ${validation ? "has-validation-error" : ""}" data-cart-key="${escape(key)}"><div class="cart-item-thumb">${thumb}</div><div class="cart-item-copy"><strong>${escape(x.name)}</strong><small>${money.format(x.price)} cada</small><button class="item-note ${note ? "has-note" : ""}" data-item-note="${escape(key)}" aria-label="${note ? "Editar" : "Adicionar"} observação em ${escape(x.name)}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11.5a7.5 7.5 0 0 1-8 7.48 9.1 9.1 0 0 1-3.63-.9L4 20l1.36-3.64A7.23 7.23 0 0 1 4 12C4 7.86 7.58 4.5 12 4.5s8 3.13 8 7Z"/><path d="M8.5 11.8h.01M12 11.8h.01M15.5 11.8h.01"/></svg><span>${note ? "Editar observação" : required ? "Preencher observação *" : "Adicionar observação"}</span></button>${note ? `<em title="${escape(note)}">${escape(note)}</em>` : ""}</div><div class="cart-item-actions"><div class="qty"><button data-line-dec="${escape(key)}" aria-label="Diminuir quantidade" ${x.qty <= 1 ? "disabled" : ""}>−</button><b>${x.qty}</b><button data-line-add="${escape(key)}" aria-label="Adicionar outro" ${productTotal >= maximum ? "disabled" : ""}>+</button></div><button class="remove-item" data-line-remove="${escape(key)}" aria-label="Excluir ${escape(x.name)} do pedido"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3M7 7l1 13h8l1-13M10 11v5M14 11v5"/></svg></button></div>${inlineOptions(x, key)}${validation ? `<div class="item-validation-error" role="alert"><strong>${escape(validation)}</strong><button type="button" data-fix-item="${escape(key)}">VER PRODUTO</button></div>` : ""}</div>`;
+        return `<div class="cart-item ${validation ? "has-validation-error" : ""}" data-cart-key="${escape(key)}"><div class="cart-item-thumb">${thumb}</div><div class="cart-item-copy"><strong>${escape(x.name)}</strong><small>${money.format(x.price)} cada</small><button class="item-note ${note ? "has-note" : ""}" data-item-note="${escape(key)}" aria-label="${note ? "Editar" : "Adicionar"} observação em ${escape(x.name)}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span>${note ? "Editar observação" : "+ Observação"}</span></button>${note ? `<em title="${escape(fullNote)}">${escape(note)}</em>` : ""}</div><div class="cart-item-actions"><div class="qty"><button data-line-dec="${escape(key)}" aria-label="Diminuir quantidade" ${x.qty <= 1 ? "disabled" : ""}>−</button><b>${x.qty}</b><button data-line-add="${escape(key)}" aria-label="Adicionar outro" ${productTotal >= maximum ? "disabled" : ""}>+</button></div><button class="remove-item" data-line-remove="${escape(key)}" aria-label="Excluir ${escape(x.name)} do pedido"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3M7 7l1 13h8l1-13M10 11v5M14 11v5"/></svg></button></div>${inlineOptions(x, key)}${validation ? `<div class="item-validation-error" role="alert"><strong>${escape(validation)}</strong><button type="button" data-fix-item="${escape(key)}">VER PRODUTO</button></div>` : ""}</div>`;
       })
       .join("") || '<p class="empty">Seu carrinho está vazio.</p>';
   $("cartCount").textContent = `${count} ${count === 1 ? "item" : "itens"}`;
@@ -494,7 +511,13 @@ document.addEventListener("click", (e) => {
   const key = choice.dataset.itemOption,
     item = cart.get(key);
   if (!item) return;
-  item.observation = choice.dataset.optionValue || "";
+  item.predefined_observation = choice.dataset.optionValue || "";
+  item.observation = [
+    item.predefined_observation,
+    String(item.custom_observation || "").trim(),
+  ]
+    .filter(Boolean)
+    .join(" · ");
   clearItemValidation(key);
   cart.set(key, item);
   $("cartMessage").textContent = "";
@@ -514,18 +537,28 @@ function openItemObservation(item, requireBeforeAdding = false) {
     ? item.observation_options
     : [];
   $("itemNoteTitle").textContent = item.name;
+  const selectedPreset = String(
+      item.predefined_observation ??
+        (options.includes(String(item.observation || ""))
+          ? item.observation
+          : ""),
+    ),
+    customNote = String(
+      item.custom_observation ??
+        (selectedPreset ? "" : item.observation || ""),
+    );
   $("itemNoteChoices").innerHTML = options
     .map(
       (option) =>
-        `<label class="item-note-choice"><input type="radio" name="itemNoteChoice" value="${escape(option)}" ${item.observation === option ? "checked" : ""}><span>${escape(option)}</span></label>`,
+        `<label class="item-note-choice"><input type="radio" name="itemNoteChoice" value="${escape(option)}" ${selectedPreset === option ? "checked" : ""}><span>${escape(option)}</span></label>`,
     )
     .join("");
   $("itemNoteChoices").hidden = !options.length;
-  // Respeita a configuração editorial do produto: quando existem opções
-  // cadastradas, o cliente escolhe uma delas; caso contrário, digita livremente.
-  $("itemNoteCustomLabel").hidden = !!options.length;
-  $("clearItemNote").hidden = !!options.length;
-  $("itemNoteText").value = item.observation || "";
+  // As escolhas cadastradas continuam somente-leitura; a observação livre é
+  // armazenada separadamente e combinada apenas no envio ao Raffinato.
+  $("itemNoteCustomLabel").hidden = false;
+  $("clearItemNote").hidden = false;
+  $("itemNoteText").value = customNote;
   $("itemNoteCount").textContent = $("itemNoteText").value.length;
   $("itemNoteMessage").textContent = requireBeforeAdding
     ? "Atenção: escolha uma opção obrigatória para adicionar este produto."
@@ -535,12 +568,10 @@ function openItemObservation(item, requireBeforeAdding = false) {
     ? "Escolher e adicionar"
     : "Salvar observação";
   $("itemNoteDialog").showModal();
-  if (!options.length) requestAnimationFrame(() => $("itemNoteText").focus());
+  requestAnimationFrame(() => $("itemNoteText").focus());
 }
 $("itemNoteChoices").onchange = (e) => {
   if (e.target.matches('input[name="itemNoteChoice"]')) {
-    $("itemNoteText").value = e.target.value;
-    $("itemNoteCount").textContent = e.target.value.length;
     $("itemNoteMessage").textContent = "";
   }
 };
@@ -561,13 +592,23 @@ $("clearItemNote").onclick = () => {
 };
 $("saveItemNote").onclick = () => {
   const item = pendingObservationItem || cart.get(editingNoteId),
-    value = $("itemNoteText").value.trim();
-  if (item?.observation_required && !value) {
+    customValue = $("itemNoteText").value.trim(),
+    presetValue =
+      document.querySelector('input[name="itemNoteChoice"]:checked')?.value ||
+      "",
+    hasPresetOptions = Array.isArray(item?.observation_options) &&
+      item.observation_options.length > 0;
+  if (
+    item?.observation_required &&
+    !(hasPresetOptions ? presetValue : customValue)
+  ) {
     $("itemNoteMessage").textContent = "Escolha uma opção para continuar.";
     return;
   }
   if (item) {
-    item.observation = value;
+    item.predefined_observation = presetValue;
+    item.custom_observation = customValue;
+    item.observation = [presetValue, customValue].filter(Boolean).join(" · ");
     clearItemValidation(editingNoteId);
     if (pendingObservationItem) {
       cart.set(`${item.id}:${crypto.randomUUID()}`, item);

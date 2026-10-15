@@ -7,7 +7,7 @@
     <title>Cardápio | Zuqui Garden Coffee</title>
     <link rel="icon" href="../assets/favicon.svg" />
     <link rel="stylesheet" href="./styles.css?v=20261001-9" />
-    <link rel="stylesheet" href="./enhancements.css?v=20261012-1" />
+    <link rel="stylesheet" href="./enhancements.css?v=20261015-visual-1" />
   </head>
   <body>
     <header class="topbar">
@@ -107,7 +107,8 @@
           <h2>Seu pedido</h2>
           <p>Revise os itens, quantidades e observações.</p>
           <button id="clearCartButton" class="clear-cart" type="button">
-            Limpar e iniciar novo pedido
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3M7 7l1 13h8l1-13M10 11v5M14 11v5" /></svg>
+            <span>Limpar pedido</span>
           </button>
         </div>
         <button id="closeCart" aria-label="Fechar">×</button>
@@ -177,7 +178,7 @@
       </div>
       <div id="itemNoteChoices" class="item-note-choices"></div>
       <label id="itemNoteCustomLabel"
-        >Como você prefere?<textarea
+        ><span>Adicionar uma observação pessoal</span><small>As opções do produto permanecem inalteradas.</small><textarea
           id="itemNoteText"
           maxlength="200"
           placeholder="Ex.: sem cebola, bem passado"
@@ -229,6 +230,6 @@
       </button>
     </dialog>
     <script src="../cardapio-config.js?v=20261014-hostinger"></script>
-    <script type="module" src="./app.js?v=20261012-1"></script>
+    <script type="module" src="./app.js?v=20261015-visual-1"></script>
   </body>
 </html>
