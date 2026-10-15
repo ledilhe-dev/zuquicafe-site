@@ -315,6 +315,9 @@ function renderCart() {
           editableNotes = notes.filter(
             (note) => !configuredOptions.includes(String(note)),
           ),
+          requiredChoice = notes.find((note) =>
+            configuredOptions.includes(String(note)),
+          ) || "",
           maximum = Number(x.max_quantity || 99),
           thumb = x.image_url
             ? `<img src="${escape(x.image_url)}" alt="" loading="lazy">`
@@ -324,9 +327,12 @@ function renderCart() {
           .reduce((sum, item) => sum + item.qty, 0);
         const validation = cartValidation.get(key) || "";
         const noteChips = editableNotes.length
-          ? `<div class="item-observations">${editableNotes.map((note) => `<span>${escape(note)}<button type="button" data-remove-note="${escape(key)}" data-note-value="${escape(note)}" aria-label="Remover observação ${escape(note)}">×</button></span>`).join("")}</div>`
+          ? `<div class="item-observations">${editableNotes.map((note) => `<span>${escape(note)}<button type="button" data-remove-note="${escape(key)}" data-note-value="${escape(note)}" aria-label="Remover observação ${escape(note)}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3M7 7l1 13h8l1-13M10 11v5M14 11v5"/></svg></button></span>`).join("")}</div>`
           : "";
-        return `<div class="cart-item ${validation ? "has-validation-error" : ""}" data-cart-key="${escape(key)}"><div class="cart-item-thumb">${thumb}</div><div class="cart-item-copy"><strong>${escape(x.name)}</strong><small>${money.format(x.price)} cada</small><button class="item-note" data-item-note="${escape(key)}" aria-label="Adicionar observação em ${escape(x.name)}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span>Observação</span></button>${noteChips}</div><div class="cart-item-actions"><div class="qty"><button data-line-dec="${escape(key)}" aria-label="Diminuir quantidade" ${x.qty <= 1 ? "disabled" : ""}>−</button><b>${x.qty}</b><button data-line-add="${escape(key)}" aria-label="Adicionar outro" ${productTotal >= maximum ? "disabled" : ""}>+</button></div><button class="remove-item" data-line-remove="${escape(key)}" aria-label="Excluir ${escape(x.name)} do pedido"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3M7 7l1 13h8l1-13M10 11v5M14 11v5"/></svg></button></div>${inlineOptions(x, key)}${validation ? `<div class="item-validation-error" role="alert"><strong>${escape(validation)}</strong><button type="button" data-fix-item="${escape(key)}">VER PRODUTO</button></div>` : ""}</div>`;
+        const requiredBadge = requiredChoice
+          ? `<span class="required-observation"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 4 4L19 6"/></svg>${escape(requiredChoice)}</span>`
+          : "";
+        return `<div class="cart-item ${validation ? "has-validation-error" : ""}" data-cart-key="${escape(key)}"><div class="cart-item-thumb">${thumb}</div><div class="cart-item-copy"><strong>${escape(x.name)}</strong><small>${money.format(x.price)} cada</small>${requiredBadge}<button class="item-note" data-item-note="${escape(key)}" aria-label="Adicionar observação em ${escape(x.name)}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span>Observação</span></button>${noteChips}</div><div class="cart-item-actions"><div class="qty"><button data-line-dec="${escape(key)}" aria-label="Diminuir quantidade" ${x.qty <= 1 ? "disabled" : ""}>−</button><b>${x.qty}</b><button data-line-add="${escape(key)}" aria-label="Adicionar outro" ${productTotal >= maximum ? "disabled" : ""}>+</button></div><button class="remove-item" data-line-remove="${escape(key)}" aria-label="Excluir ${escape(x.name)} do pedido"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3M7 7l1 13h8l1-13M10 11v5M14 11v5"/></svg></button></div>${inlineOptions(x, key)}${validation ? `<div class="item-validation-error" role="alert"><strong>${escape(validation)}</strong><button type="button" data-fix-item="${escape(key)}">VER PRODUTO</button></div>` : ""}</div>`;
       })
       .join("") || '<p class="empty">Seu carrinho está vazio.</p>';
   $("cartCount").textContent = `${count} ${count === 1 ? "item" : "itens"}`;
@@ -375,6 +381,7 @@ function splitConfigurableQuantities() {
         ...current,
         qty: 1,
         observation: index === 0 ? String(current.observation || "") : "",
+        observations: index === 0 ? itemObservations(current) : [],
       });
   }
   cart = normalized;
@@ -435,6 +442,7 @@ document.addEventListener("click", (e) => {
           price: Number(p.source_price ?? p.price),
           qty: 1,
           observation: "",
+          observations: [],
         });
       renderCart();
       toast(`${total + amount} × ${p.name} no pedido`);
@@ -889,7 +897,14 @@ $("reviewButton").onclick = () => {
     return;
   }
   const missingEntry = [...cart.entries()].find(
-      ([, x]) => x.observation_required && !String(x.observation || "").trim(),
+      ([, x]) =>
+        x.observation_required &&
+        !itemObservations(x).some((value) =>
+          (Array.isArray(x.observation_options)
+            ? x.observation_options
+            : []
+          ).includes(value),
+        ),
     ),
     missing = missingEntry?.[1];
   if (missingEntry) {
