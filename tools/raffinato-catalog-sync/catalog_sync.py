@@ -7,15 +7,20 @@ import pyodbc,requests
 
 BASE=Path(sys.executable).resolve().parent if getattr(sys,'frozen',False) else Path(__file__).resolve().parent; CONFIG=BASE/'catalog-sync.dat'; LOG=BASE/'catalog-sync.log'
 logging.basicConfig(filename=LOG,level=logging.INFO,format='%(asctime)s %(levelname)s %(message)s',encoding='utf-8')
-CONNECTOR_VERSION='2.0.18'
-SQL="""SELECT P.Id idproduto,LTRIM(RTRIM(P.Nome)) nome,LTRIM(RTRIM(P.NomeReduzido)) nomereduzido,
+CONNECTOR_VERSION='2.0.19'
+SQL=""";WITH PrecosVigentes AS (
+ SELECT X.IdProduto,X.Valor,
+  ROW_NUMBER() OVER(PARTITION BY X.IdProduto ORDER BY ISNULL(X.DataInicial,'19000101') DESC,X.Id DESC) rn
+ FROM dbo.PrecoProduto X WITH(NOLOCK)
+ WHERE X.IdFilial=? AND (X.DataInicial IS NULL OR X.DataInicial<=GETDATE())
+  AND (X.DataFinal IS NULL OR X.DataFinal>=GETDATE())
+)
+SELECT P.Id idproduto,LTRIM(RTRIM(P.Nome)) nome,LTRIM(RTRIM(P.NomeReduzido)) nomereduzido,
 CAST(PP.Valor AS decimal(12,2)) preco,NULLIF(LTRIM(RTRIM(P.CodigoBarra)),'') codigobarra,
 U.Sigla unidade,CAST(ISNULL(U.PermiteFracao,0) AS bit) permite_fracao,A.Id idcategoria,
 LTRIM(RTRIM(A.Nome)) categoria,A.Arvore arvore,CAST(ISNULL(P.Ativo,0) AS bit) ativo
 FROM dbo.Produto P WITH(NOLOCK)
-OUTER APPLY (SELECT TOP(1) X.Valor FROM dbo.PrecoProduto X WITH(NOLOCK)
- WHERE X.IdProduto=P.Id AND X.IdFilial=? AND (X.DataInicial IS NULL OR X.DataInicial<=GETDATE())
- AND (X.DataFinal IS NULL OR X.DataFinal>=GETDATE()) ORDER BY ISNULL(X.DataInicial,'19000101') DESC,X.Id DESC) PP
+LEFT JOIN PrecosVigentes PP ON PP.IdProduto=P.Id AND PP.rn=1
 LEFT JOIN dbo.UnidadeMedida U WITH(NOLOCK) ON U.Id=P.IdUnidadeMedida
 LEFT JOIN dbo.Agrupamento A WITH(NOLOCK) ON A.Id=P.IdAgrupamento
 WHERE ISNULL(LTRIM(RTRIM(P.Nome)),'')<>'' ORDER BY P.Id"""
