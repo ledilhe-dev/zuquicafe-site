@@ -7,7 +7,7 @@ import pyodbc,requests
 
 BASE=Path(sys.executable).resolve().parent if getattr(sys,'frozen',False) else Path(__file__).resolve().parent; CONFIG=BASE/'catalog-sync.dat'; LOG=BASE/'catalog-sync.log'
 logging.basicConfig(filename=LOG,level=logging.INFO,format='%(asctime)s %(levelname)s %(message)s',encoding='utf-8')
-CONNECTOR_VERSION='2.0.16'
+CONNECTOR_VERSION='2.0.17'
 SQL="""SELECT P.Id idproduto,LTRIM(RTRIM(P.Nome)) nome,LTRIM(RTRIM(P.NomeReduzido)) nomereduzido,
 CAST(PP.Valor AS decimal(12,2)) preco,NULLIF(LTRIM(RTRIM(P.CodigoBarra)),'') codigobarra,
 U.Sigla unidade,CAST(ISNULL(U.PermiteFracao,0) AS bit) permite_fracao,A.Id idcategoria,
@@ -31,6 +31,7 @@ def connection(c):
  return f"DRIVER={{{driver}}};SERVER={c['server']};DATABASE={c['database']};UID={c['uid']};PWD={c['pwd']};Encrypt=no;TrustServerCertificate=yes;ApplicationIntent=ReadOnly;"
 def rows(c):
  with pyodbc.connect(connection(c),timeout=8) as db:
+  db.timeout=60
   cur=db.cursor();cur.execute(SQL,int(c['id_filial']));names=[d[0] for d in cur.description]
   return [dict(zip(names,r)) for r in cur.fetchall()]
 def post(c,action,**body):
