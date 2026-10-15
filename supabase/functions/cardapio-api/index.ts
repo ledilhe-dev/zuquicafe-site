@@ -208,12 +208,38 @@ Deno.serve(async (req) => {
       if (error) throw error;
       return out({ ok: true, already_open: false, delivery: "admin_queue" });
     }
+    if (action === "forgot_password") {
+      const email = String(body.email || "").trim().toLowerCase();
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
+        return out({ error: "Informe um e-mail válido." }, 400);
+      const { data: usersResult, error: usersError } = await db.auth.admin.listUsers({
+        page: 1,
+        perPage: 1000,
+      });
+      if (usersError) throw usersError;
+      const user = usersResult.users.find((item) =>
+        String(item.email || "").trim().toLowerCase() === email
+      );
+      if (user) {
+        const { data: adminProfile } = await db
+          .from("menu_admin_profiles")
+          .select("user_id")
+          .eq("user_id", user.id)
+          .maybeSingle();
+        if (adminProfile) {
+          const auth = createClient(url, anon, { auth: { persistSession: false } });
+          const { error } = await auth.auth.resetPasswordForEmail(email, {
+            redirectTo: "https://zuquicafe.com.br/cardapioAdm/",
+          });
+          if (error) throw error;
+        }
+      }
+      return out({ ok: true });
+    }
     if (action === "login_v2") {
       const auth = createClient(url, anon, { auth: { persistSession: false } }),
-        email = Deno.env.get("CARDAPIO_ADMIN_EMAIL")?.trim().toLowerCase(),
         requestedEmail = String(body.email || "").trim().toLowerCase();
-      if (!email) throw new Error("Administrador ainda nao configurado.");
-      if (!requestedEmail || requestedEmail !== email)
+      if (!requestedEmail)
         return out({ error: "Credenciais invalidas" }, 401);
       const { data, error } = await auth.auth.signInWithPassword({
         email: requestedEmail,
@@ -227,9 +253,13 @@ Deno.serve(async (req) => {
       }
       const { data: adminProfile } = await db
         .from("menu_admin_profiles")
-        .select("must_change_password")
+        .select("must_change_password,nome")
         .eq("user_id", data.user.id)
-        .single();
+        .maybeSingle();
+      if (!adminProfile) {
+        await auth.auth.signOut();
+        return out({ error: "Acesso administrativo não autorizado." }, 403);
+      }
       return out({
         access_token: data.session.access_token,
         refresh_token: data.session.refresh_token,
@@ -314,6 +344,7 @@ Deno.serve(async (req) => {
           "2.0.11",
           "2.0.12",
           "2.0.13",
+          "2.0.14",
         ].includes(dispatcherVersion);
         if (preferredDispatcher) {
           await db.from("menu_dispatcher_leases").upsert({
@@ -332,7 +363,7 @@ Deno.serve(async (req) => {
             .gte("last_seen_at", cutoff)
             .maybeSingle();
           if (
-            ["2.0.9", "2.0.10", "2.0.11", "2.0.12", "2.0.13"].includes(
+            ["2.0.9", "2.0.10", "2.0.11", "2.0.12", "2.0.13", "2.0.14"].includes(
               activeDispatcher?.connector_version,
             )
           )
@@ -695,10 +726,8 @@ Deno.serve(async (req) => {
     }
     if (action === "login") {
       const auth = createClient(url, anon, { auth: { persistSession: false } }),
-        email = Deno.env.get("CARDAPIO_ADMIN_EMAIL")?.trim().toLowerCase(),
         requestedEmail = String(body.email || "").trim().toLowerCase();
-      if (!email) throw new Error("Administrador ainda não configurado.");
-      if (!requestedEmail || requestedEmail !== email)
+      if (!requestedEmail)
         return out({ error: "Credenciais inválidas" }, 401);
       const { data, error } = await auth.auth.signInWithPassword({
         email: requestedEmail,
@@ -712,9 +741,13 @@ Deno.serve(async (req) => {
       }
       const { data: profile } = await db
         .from("menu_admin_profiles")
-        .select("must_change_password")
+        .select("must_change_password,nome")
         .eq("user_id", data.user.id)
-        .single();
+        .maybeSingle();
+      if (!profile) {
+        await auth.auth.signOut();
+        return out({ error: "Acesso administrativo não autorizado." }, 403);
+      }
       return out({
         access_token: data.session.access_token,
         must_change_password: !!profile?.must_change_password,
@@ -759,6 +792,75 @@ Deno.serve(async (req) => {
     }
     if (profile?.must_change_password)
       return out({ error: "Troque a senha inicial antes de continuar." }, 403);
+    if (action === "list_admin_users") {
+      const [{ data: profiles, error: profilesError }, { data: usersResult, error: usersError }] =
+        await Promise.all([
+          db.from("menu_admin_profiles").select("user_id,nome,created_at").order("nome"),
+          db.auth.admin.listUsers({ page: 1, perPage: 1000 }),
+        ]);
+      if (profilesError) throw profilesError;
+      if (usersError) throw usersError;
+      const usersById = new Map(usersResult.users.map((item) => [item.id, item]));
+      return out({
+        users: (profiles || []).map((item) => {
+          const user = usersById.get(item.user_id);
+          return {
+            id: item.user_id,
+            nome: item.nome,
+            email: user?.email || "",
+            email_verificado: !!user?.email_confirmed_at,
+          };
+        }),
+      });
+    }
+    if (action === "create_admin_user") {
+      const nome = String(body.nome || "").trim().replace(/\s+/g, " "),
+        email = String(body.email || "").trim().toLowerCase();
+      if (nome.length < 2) return out({ error: "Informe o nome." }, 400);
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
+        return out({ error: "Informe um e-mail válido." }, 400);
+      const { data: existingUsers, error: listError } = await db.auth.admin.listUsers({
+        page: 1,
+        perPage: 1000,
+      });
+      if (listError) throw listError;
+      if (existingUsers.users.some((item) => String(item.email || "").toLowerCase() === email))
+        return out({ error: "Este e-mail já possui cadastro." }, 409);
+      const { data: invited, error: inviteError } = await db.auth.admin.inviteUserByEmail(email, {
+        redirectTo: "https://zuquicafe.com.br/cardapioAdm/",
+        data: { nome },
+      });
+      if (inviteError || !invited.user) throw inviteError || new Error("Convite não criado.");
+      const { error: profileError } = await db.from("menu_admin_profiles").insert({
+        user_id: invited.user.id,
+        username: email,
+        nome,
+        must_change_password: true,
+      });
+      if (profileError) {
+        await db.auth.admin.deleteUser(invited.user.id);
+        throw profileError;
+      }
+      return out({ ok: true });
+    }
+    if (action === "send_admin_password_reset") {
+      const userId = String(body.user_id || "").trim();
+      const { data: targetProfile } = await db
+        .from("menu_admin_profiles")
+        .select("user_id")
+        .eq("user_id", userId)
+        .maybeSingle();
+      if (!targetProfile) return out({ error: "Usuário não encontrado." }, 404);
+      const { data: targetResult, error: targetError } = await db.auth.admin.getUserById(userId);
+      if (targetError || !targetResult.user?.email)
+        return out({ error: "E-mail do usuário não encontrado." }, 404);
+      const auth = createClient(url, anon, { auth: { persistSession: false } });
+      const { error } = await auth.auth.resetPasswordForEmail(targetResult.user.email, {
+        redirectTo: "https://zuquicafe.com.br/cardapioAdm/",
+      });
+      if (error) throw error;
+      return out({ ok: true });
+    }
     if (action === "admin_snapshot") {
       const names = [
           "categories",
@@ -822,7 +924,13 @@ Deno.serve(async (req) => {
       });
     }
     if (action === "catalog_status") {
-      const [{ data: stores }, { data: connectors }, { data: runs }] =
+      const [
+        { data: stores },
+        { data: connectors },
+        { data: runs },
+        { data: requests },
+        { data: dispatchers },
+      ] =
         await Promise.all([
           db
             .from("menu_stores")
@@ -839,11 +947,23 @@ Deno.serve(async (req) => {
             .select("*")
             .order("started_at", { ascending: false })
             .limit(20),
+          db
+            .from("menu_catalog_sync_requests")
+            .select("id,store_key,status,requested_at,started_at,finished_at,error_message")
+            .order("requested_at", { ascending: false })
+            .limit(20),
+          db
+            .from("menu_dispatcher_leases")
+            .select("store_key,source_branch_id,connector_version,last_seen_at")
+            .order("last_seen_at", { ascending: false })
+            .limit(20),
         ]);
       return out({
         stores: stores || [],
         connectors: connectors || [],
         runs: runs || [],
+        requests: requests || [],
+        dispatchers: dispatchers || [],
       });
     }
     if (action === "catalog_products_page") {
