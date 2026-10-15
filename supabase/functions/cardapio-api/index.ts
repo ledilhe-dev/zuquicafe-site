@@ -27,6 +27,36 @@ const sha256 = async (v: string) =>
   )
     .map((x) => x.toString(16).padStart(2, "0"))
     .join("");
+const escapeHtml = (value: string) =>
+  value.replace(/[&<>"']/g, (char) => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+  })[char]!);
+const sendAdminInvite = async (db: any, email: string, nome: string) => {
+  const { data, error } = await db.auth.admin.generateLink({
+    type: "invite",
+    email,
+    options: { redirectTo: "https://zuquicafe.com.br/cardapioAdm/", data: { nome } },
+  });
+  if (error || !data?.properties?.action_link)
+    throw error || new Error("Não foi possível gerar o link de validação.");
+  const resendKey = Deno.env.get("RESEND_API_KEY") || "";
+  const fromEmail = Deno.env.get("AUTH_FROM_EMAIL") || "";
+  if (!resendKey || !fromEmail) throw new Error("Envio de e-mail não configurado.");
+  const response = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${resendKey}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      from: `${Deno.env.get("AUTH_FROM_NAME") || "Zuqui Café"} <${fromEmail}>`,
+      to: [email],
+      subject: "Valide seu acesso ao Cardápio Digital Zuqui",
+      html: `<div style="font-family:Arial,sans-serif;max-width:560px;margin:auto;color:#183328"><h2>Olá, ${escapeHtml(nome)}!</h2><p>Seu acesso administrativo ao Cardápio Digital Zuqui foi criado.</p><p><a href="${escapeHtml(data.properties.action_link)}" style="display:inline-block;padding:13px 20px;background:#20543f;color:#fff;text-decoration:none;border-radius:9px;font-weight:bold">Validar e-mail e definir senha</a></p><p style="font-size:13px;color:#66756e">Se você não solicitou este acesso, ignore esta mensagem.</p></div>`,
+    }),
+  });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok || !result.id)
+    throw new Error(`O provedor de e-mail recusou o envio (HTTP ${response.status}).`);
+  return result.id as string;
+};
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   if (req.method !== "POST") return out({ error: "Método não permitido" }, 405);
@@ -842,6 +872,18 @@ Deno.serve(async (req) => {
         throw profileError;
       }
       return out({ ok: true });
+    }
+    if (action === "resend_admin_invite") {
+      const userId = String(body.user_id || "").trim();
+      const { data: targetProfile } = await db.from("menu_admin_profiles")
+        .select("user_id,nome").eq("user_id", userId).maybeSingle();
+      if (!targetProfile) return out({ error: "Usuário não encontrado." }, 404);
+      const { data: targetResult, error: targetError } = await db.auth.admin.getUserById(userId);
+      const target = targetResult?.user;
+      if (targetError || !target?.email) return out({ error: "E-mail do usuário não encontrado." }, 404);
+      if (target.email_confirmed_at) return out({ error: "Este e-mail já foi validado." }, 409);
+      const emailId = await sendAdminInvite(db, target.email, targetProfile.nome || target.email);
+      return out({ ok: true, delivery_registered: true, email_id: emailId });
     }
     if (action === "send_admin_password_reset") {
       const userId = String(body.user_id || "").trim();
