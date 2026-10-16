@@ -279,6 +279,48 @@ $("productSearch").oninput = (event) => {
 };
 let bannerIndex = 0,
   bannerTimer;
+const bannerInterval = 7000;
+
+function showBanner(nextIndex, { animate = true } = {}) {
+  const host = $("bannerCarousel"),
+    slides = [...host.querySelectorAll(".banner-slide")],
+    dots = [...host.querySelectorAll("[data-banner-index]")];
+  if (!slides.length) return;
+  const previousIndex = bannerIndex;
+  bannerIndex = nextIndex;
+  slides.forEach((slide) => slide.classList.remove("leaving"));
+  if (animate && previousIndex !== bannerIndex) {
+    host.classList.remove("is-changing");
+    void host.offsetWidth;
+    host.classList.add("is-changing");
+    slides[previousIndex]?.classList.remove("active");
+    slides[previousIndex]?.classList.add("leaving");
+  } else {
+    slides[previousIndex]?.classList.remove("active");
+  }
+  slides[bannerIndex]?.classList.add("active");
+  slides.forEach((slide, index) =>
+    slide.setAttribute("aria-hidden", String(index !== bannerIndex)),
+  );
+  dots.forEach((dot, index) =>
+    dot.classList.toggle("active", index === bannerIndex),
+  );
+  if (animate)
+    setTimeout(() => {
+      slides[previousIndex]?.classList.remove("leaving");
+      host.classList.remove("is-changing");
+    }, 700);
+}
+
+function startBannerTimer(total) {
+  clearInterval(bannerTimer);
+  if (total < 2 || matchMedia("(prefers-reduced-motion: reduce)").matches)
+    return;
+  bannerTimer = setInterval(() => {
+    showBanner((bannerIndex + 1) % total);
+  }, bannerInterval);
+}
+
 function renderBanners() {
   const banners = (data.banners || []).filter((x) => x.available !== false),
     host = $("bannerCarousel");
@@ -290,22 +332,17 @@ function renderBanners() {
   }
   bannerIndex = Math.min(bannerIndex, banners.length - 1);
   host.hidden = false;
-  host.innerHTML = `<div class="banner-track">${banners.map((x, index) => `<figure class="banner-slide ${index === bannerIndex ? "active" : ""}"><img src="${escape(x.image_url)}" alt="${escape(x.alt_text || x.title || "Destaque do cardápio")}">${x.title ? `<figcaption>${escape(x.title)}</figcaption>` : ""}</figure>`).join("")}</div>${banners.length > 1 ? `<div class="banner-dots">${banners.map((_, index) => `<button data-banner-index="${index}" class="${index === bannerIndex ? "active" : ""}" aria-label="Ver destaque ${index + 1}"></button>`).join("")}</div>` : ""}`;
+  host.innerHTML = `<div class="banner-track">${banners.map((x, index) => `<figure class="banner-slide ${index === bannerIndex ? "active" : ""}" aria-hidden="${index !== bannerIndex}"><img src="${escape(x.image_url)}" alt="${escape(x.alt_text || x.title || "Destaque do cardápio")}">${x.title ? `<figcaption>${escape(x.title)}</figcaption>` : ""}</figure>`).join("")}</div>${banners.length > 1 ? `<div class="banner-dots">${banners.map((_, index) => `<button data-banner-index="${index}" class="${index === bannerIndex ? "active" : ""}" aria-label="Ver destaque ${index + 1}"></button>`).join("")}</div>` : ""}`;
   host.querySelectorAll("[data-banner-index]").forEach(
     (button) =>
       (button.onclick = () => {
-        bannerIndex = Number(button.dataset.bannerIndex);
-        renderBanners();
+        showBanner(Number(button.dataset.bannerIndex), {
+          animate: !matchMedia("(prefers-reduced-motion: reduce)").matches,
+        });
+        startBannerTimer(banners.length);
       }),
   );
-  if (
-    banners.length > 1 &&
-    !matchMedia("(prefers-reduced-motion: reduce)").matches
-  )
-    bannerTimer = setInterval(() => {
-      bannerIndex = (bannerIndex + 1) % banners.length;
-      renderBanners();
-    }, 5500);
+  startBannerTimer(banners.length);
 }
 function inlineOptions(x, key) {
   const options = Array.isArray(x.observation_options)
@@ -315,6 +352,15 @@ function inlineOptions(x, key) {
   const choices = [...(!x.observation_required ? [null] : []), ...options];
   const selected = presetObservation(x);
   return `<fieldset class="inline-options ${x.observation_required ? "required" : ""}"><legend>${x.observation_required ? "Escolha uma opção" : "Preferência (opcional)"}${x.observation_required ? '<span>Obrigatório</span>' : ""}</legend><div class="inline-options-list">${choices.map((option) => `<button type="button" class="inline-option ${option === null ? "optional-clear " : ""}${selected === String(option || "") ? "selected" : ""}" data-item-option="${escape(key)}" data-option-value="${escape(option || "")}">${escape(option || "Sem preferência")}</button>`).join("")}</div></fieldset>`;
+}
+function cartItemDescription(item) {
+  const catalogItem = data.products.find(
+      (product) => String(product.id) === String(item.id),
+    ),
+    description = String(
+      item.description || catalogItem?.description || "",
+    ).trim();
+  return description;
 }
 function renderCart() {
   let count = 0,
@@ -342,13 +388,14 @@ function renderCart() {
           .filter((item) => item.id === x.id)
           .reduce((sum, item) => sum + item.qty, 0);
         const validation = cartValidation.get(key) || "";
+        const description = cartItemDescription(x);
         const noteChips = editableNotes.length
           ? `<div class="item-observations">${editableNotes.map((note) => `<span>${escape(note)}<button type="button" data-remove-note="${escape(key)}" data-note-value="${escape(note)}" aria-label="Remover observação ${escape(note)}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3M7 7l1 13h8l1-13M10 11v5M14 11v5"/></svg></button></span>`).join("")}</div>`
           : "";
         const requiredBadge = requiredChoice
           ? `<span class="required-observation"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 4 4L19 6"/></svg>${escape(requiredChoice)}</span>`
           : "";
-        return `<div class="cart-item ${validation ? "has-validation-error" : ""}" data-cart-key="${escape(key)}"><div class="cart-item-thumb">${thumb}</div><div class="cart-item-copy"><strong>${escape(x.name)}</strong><small>${money.format(x.price)} cada</small>${requiredBadge}<button class="item-note" data-item-note="${escape(key)}" aria-label="Adicionar observação em ${escape(x.name)}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span>Observação</span></button>${noteChips}</div><div class="cart-item-actions"><div class="qty"><button data-line-dec="${escape(key)}" aria-label="Diminuir quantidade" ${x.qty <= 1 ? "disabled" : ""}>−</button><b>${x.qty}</b><button data-line-add="${escape(key)}" aria-label="Adicionar outro" ${productTotal >= maximum ? "disabled" : ""}>+</button></div><button class="remove-item" data-line-remove="${escape(key)}" aria-label="Excluir ${escape(x.name)} do pedido"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3M7 7l1 13h8l1-13M10 11v5M14 11v5"/></svg></button></div>${inlineOptions(x, key)}${validation ? `<div class="item-validation-error" role="alert"><strong>${escape(validation)}</strong><button type="button" data-fix-item="${escape(key)}">VER PRODUTO</button></div>` : ""}</div>`;
+        return `<div class="cart-item ${validation ? "has-validation-error" : ""}" data-cart-key="${escape(key)}"><div class="cart-item-thumb">${thumb}</div><div class="cart-item-copy"><strong>${escape(x.name)}</strong><small>${money.format(x.price)} cada</small>${description ? `<p class="cart-item-description" title="${escape(description)}">${escape(description)}</p>` : ""}${requiredBadge}<button class="item-note" data-item-note="${escape(key)}" aria-label="Adicionar observação em ${escape(x.name)}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span>Observação</span></button>${noteChips}</div><div class="cart-item-actions"><div class="qty"><button data-line-dec="${escape(key)}" aria-label="Diminuir quantidade" ${x.qty <= 1 ? "disabled" : ""}>−</button><b>${x.qty}</b><button data-line-add="${escape(key)}" aria-label="Adicionar outro" ${productTotal >= maximum ? "disabled" : ""}>+</button></div><button class="remove-item" data-line-remove="${escape(key)}" aria-label="Excluir ${escape(x.name)} do pedido"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3M7 7l1 13h8l1-13M10 11v5M14 11v5"/></svg></button></div>${inlineOptions(x, key)}${validation ? `<div class="item-validation-error" role="alert"><strong>${escape(validation)}</strong><button type="button" data-fix-item="${escape(key)}">VER PRODUTO</button></div>` : ""}</div>`;
       })
       .join("") || '<p class="empty">Seu carrinho está vazio.</p>';
   $("cartCount").textContent = `${count} ${count === 1 ? "item" : "itens"}`;
