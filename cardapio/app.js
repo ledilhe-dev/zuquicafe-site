@@ -108,6 +108,22 @@ async function api(action, body = {}) {
   }
   return j;
 }
+const MENU_CACHE_KEY = "zuqui_public_menu_cache_v1";
+function loadMenuCache() {
+  try {
+    const cached = JSON.parse(localStorage.getItem(MENU_CACHE_KEY) || "null");
+    return cached?.data && Date.now() - Number(cached.saved_at || 0) < 24 * 60 * 60 * 1000
+      ? cached.data
+      : null;
+  } catch {
+    return null;
+  }
+}
+function saveMenuCache(menu) {
+  try {
+    localStorage.setItem(MENU_CACHE_KEY, JSON.stringify({ saved_at: Date.now(), data: menu }));
+  } catch {}
+}
 const apiBase = api;
 api = async function (action, body = {}) {
   if (action === "create_order")
@@ -1005,7 +1021,15 @@ document.querySelectorAll("[data-service]").forEach(
     }),
 );
 (async () => {
+  let cacheRendered = false;
   try {
+    const cachedMenu = loadMenuCache();
+    if (cachedMenu) {
+      data = cachedMenu;
+      splitConfigurableQuantities();
+      render();
+      cacheRendered = true;
+    }
     const urlClaim = params.get("claim");
     if (urlClaim) {
       history.replaceState(
@@ -1028,11 +1052,17 @@ document.querySelectorAll("[data-service]").forEach(
       }
     }
     data = await api("public_menu");
+    saveMenuCache(data);
     splitConfigurableQuantities();
     render();
     if (!data.ordering_enabled && !$("readOnlyDialog").open)
       $("readOnlyDialog").showModal();
   } catch (e) {
+    if (cacheRendered) {
+      $("notice").textContent = "Exibindo o cardápio salvo enquanto atualizamos a conexão.";
+      updateIdentity();
+      return;
+    }
     $("notice").textContent = e.message;
     $("products").innerHTML =
       '<div class="empty">Não foi possível carregar o cardápio agora.</div>';
