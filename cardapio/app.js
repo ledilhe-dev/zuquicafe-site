@@ -4,7 +4,6 @@ const cfg = window.ZUQUI_CARDAPIO_CONFIG || {},
     currency: "BRL",
   }),
   params = new URLSearchParams(location.search),
-  siteBrowseMode = params.get("modo") === "consulta" && !params.get("reference"),
   $ = (id) => document.getElementById(id),
   escape = (s) =>
     String(s || "").replace(
@@ -83,7 +82,6 @@ function itemObservations(item) {
       : "";
   return [preset, ...oldNotes, legacyAdditional].filter(Boolean);
 }
-document.body.classList.toggle("site-browse-mode", siteBrowseMode);
 async function api(action, body = {}) {
   if (!cfg.apiUrl) throw new Error("Cardápio ainda não conectado ao servidor.");
   const r = await fetch(cfg.apiUrl, {
@@ -163,19 +161,6 @@ function toast(text) {
   toast.timer = setTimeout(() => $("toast").classList.remove("show"), 2200);
 }
 function updateIdentity() {
-  document.body.classList.toggle("site-browse-mode", siteBrowseMode);
-  if (siteBrowseMode) {
-    $("welcome").classList.remove("identified");
-    $("welcome").querySelector("small").textContent = "UMA SELEÇÃO DO ZUQUI";
-    $("welcomeTitle").textContent = "Conheça nossos principais sabores";
-    $("welcomeCopy").textContent =
-      "Este cardápio é para consulta e apresenta uma seleção dos principais itens do Zuqui. Para fazer seu pedido, visite nossa loja ou utilize o iFood.";
-    $("welcome").querySelector(".welcome-actions").hidden = true;
-    $("callWaiterButton").parentElement.hidden = true;
-    return;
-  }
-  $("welcome").querySelector(".welcome-actions").hidden = false;
-  $("callWaiterButton").parentElement.hidden = false;
   const ready = !!cardClaim;
   $("callWaiterButton").disabled = !ready;
   $("accountButton").disabled = !ready;
@@ -262,7 +247,7 @@ function render() {
     ? products
         .map(
           (p) =>
-            `<article class="product">${productMedia(p)}<div class="product-body"><h3>${escape(p.name)}</h3><p>${escape(p.description)}</p><div class="product-foot"><strong>${money.format(p.source_price ?? p.price)}</strong>${siteBrowseMode ? '<span class="browse-only-label">Somente consulta</span>' : `<button data-add="${p.id}" aria-label="Adicionar ${escape(p.name)}">Adicionar</button>`}</div></div></article>`,
+            `<article class="product">${productMedia(p)}<div class="product-body"><h3>${escape(p.name)}</h3><p>${escape(p.description)}</p><div class="product-foot"><strong>${money.format(p.source_price ?? p.price)}</strong><button data-add="${p.id}" aria-label="Adicionar ${escape(p.name)}">Adicionar</button></div></div></article>`,
         )
         .join("")
     : '<div class="empty">Nenhum produto disponível nesta categoria.</div>';
@@ -271,14 +256,12 @@ function render() {
     ? `<strong>${escape(ref.name)} SELECIONADA</strong>`
     : `<strong>MESA NÃO IDENTIFICADA</strong>`;
   $("fixedReference").textContent = ref ? ref.name : "Mesa não identificada";
-  document.body.classList.toggle("read-only-mode", siteBrowseMode || !data.ordering_enabled);
-  $("notice").classList.toggle("read-only-ribbon", siteBrowseMode || !data.ordering_enabled);
-  $("notice").textContent = siteBrowseMode
-    ? "Cardápio para consulta · confira uma seleção dos nossos principais itens."
-    : data.ordering_enabled
+  document.body.classList.toggle("read-only-mode", !data.ordering_enabled);
+  $("notice").classList.toggle("read-only-ribbon", !data.ordering_enabled);
+  $("notice").textContent = data.ordering_enabled
     ? ""
     : "Modo leitura: conheça nossos produtos e chame o atendente para fazer seu pedido.";
-  $("cartButton").disabled = siteBrowseMode || !data.ordering_enabled;
+  $("cartButton").disabled = !data.ordering_enabled;
   renderCart();
   updateIdentity();
 }
@@ -287,7 +270,7 @@ function renderFeatured(products) {
     host = $("featuredProducts");
   host.hidden = !featured.length;
   host.innerHTML = featured.length
-    ? `<div class="featured-head"><div><small>PARA VOCÊ DESCOBRIR</small><h3>Novidades e destaques</h3></div><span>Deslize para conhecer →</span></div><div class="featured-track">${featured.map((p) => `<article class="featured-card">${productMedia(p, "featured-image")}<div class="featured-copy"><strong>${escape(p.name)}</strong><small>${money.format(p.source_price ?? p.price)}</small></div>${siteBrowseMode ? "" : `<button data-add="${p.id}" aria-label="Adicionar ${escape(p.name)}">+</button>`}</article>`).join("")}</div>`
+    ? `<div class="featured-head"><div><small>PARA VOCÊ DESCOBRIR</small><h3>Novidades e destaques</h3></div><span>Deslize para conhecer →</span></div><div class="featured-track">${featured.map((p) => `<article class="featured-card">${productMedia(p, "featured-image")}<div class="featured-copy"><strong>${escape(p.name)}</strong><small>${money.format(p.source_price ?? p.price)}</small></div><button data-add="${p.id}" aria-label="Adicionar ${escape(p.name)}">+</button></article>`).join("")}</div>`
     : "";
 }
 $("productSearch").oninput = (event) => {
@@ -1119,7 +1102,7 @@ document.querySelectorAll("[data-service]").forEach(
     saveMenuCache(data);
     splitConfigurableQuantities();
     render();
-    if (!siteBrowseMode && !data.ordering_enabled && !$("readOnlyDialog").open)
+    if (!data.ordering_enabled && !$("readOnlyDialog").open)
       $("readOnlyDialog").showModal();
   } catch (e) {
     if (cacheRendered) {
