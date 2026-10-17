@@ -2018,8 +2018,7 @@ body {
 body.site-browse-mode .cart-button,
 body.site-browse-mode .cart,
 body.site-browse-mode .overlay,
-body.site-browse-mode .topbar-actions,
-body.site-browse-mode .welcome-actions { display:none!important; }
+body.site-browse-mode .topbar-actions { display:none!important; }
 body.site-browse-mode .welcome-card { border-color:rgba(196,154,85,.42); background:linear-gradient(135deg,#fffdf8,#f5ead5); }
 body.site-browse-mode .welcome-card h1 { max-width:760px; }
 body.site-browse-mode .browse-only-label { padding:7px 10px; border:1px solid rgba(36,74,54,.18); border-radius:999px; color:#52665a; background:#f7f1e5; font-size:10px; font-weight:800; letter-spacing:.04em; text-transform:uppercase; }

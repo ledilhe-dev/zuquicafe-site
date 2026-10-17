@@ -9,11 +9,11 @@ const admin = readFileSync(new URL("../cardapioAdm/app.js", import.meta.url), "u
 
 test("site abre o cardápio em modo de consulta", () => {
   assert.match(home, /href="\/cardapio\/\?modo=consulta">Ver cardápio</);
-  assert.match(menu, /siteBrowseMode = !params\.get\("reference"\)/);
+  assert.match(menu, /params\.get\("modo"\) === "consulta"/);
+  assert.match(menu, /!params\.get\("reference"\)/);
   assert.match(menu, /Somente consulta/);
   assert.match(styles, /site-browse-mode \.cart-button/);
   assert.match(styles, /site-browse-mode \.topbar-actions/);
-  assert.match(styles, /site-browse-mode \.welcome-actions/);
 });
 
 test("QR da mesa continua usando referência e fluxo de pedido", () => {
