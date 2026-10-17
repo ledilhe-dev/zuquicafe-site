@@ -4,7 +4,7 @@ const cfg = window.ZUQUI_CARDAPIO_CONFIG || {},
     currency: "BRL",
   }),
   params = new URLSearchParams(location.search),
-  siteBrowseMode = params.get("modo") === "consulta" && !params.get("reference"),
+  siteBrowseMode = !params.get("reference"),
   $ = (id) => document.getElementById(id),
   escape = (s) =>
     String(s || "").replace(
