@@ -665,10 +665,41 @@ Deno.serve(async (req) => {
             source_updated_at: now,
             source_sync_run_id: body.run_id,
           }));
-        const { error } = await db.from("menu_products").upsert(rows, {
-          onConflict: "store_key,source_branch_id,raffinato_product_id",
-        });
-        if (error) throw error;
+        const productIds = rows.map((row: any) => row.raffinato_product_id),
+          { data: existingProducts, error: existingError } = productIds.length
+            ? await db
+              .from("menu_products")
+              .select("raffinato_product_id")
+              .eq("store_key", storeKey)
+              .eq("source_branch_id", branchId)
+              .in("raffinato_product_id", productIds)
+            : { data: [], error: null },
+          existingIds = new Set(
+            (existingProducts || []).map((row: any) =>
+              Number(row.raffinato_product_id)
+            ),
+          ),
+          existingRows = rows.filter((row: any) =>
+            existingIds.has(row.raffinato_product_id)
+          ),
+          newRows = rows
+            .filter((row: any) => !existingIds.has(row.raffinato_product_id))
+            .map((row: any) => ({
+              ...row,
+              cardapio_override: false,
+              visible: false,
+            }));
+        if (existingError) throw existingError;
+        if (existingRows.length) {
+          const { error } = await db.from("menu_products").upsert(existingRows, {
+            onConflict: "store_key,source_branch_id,raffinato_product_id",
+          });
+          if (error) throw error;
+        }
+        if (newRows.length) {
+          const { error } = await db.from("menu_products").insert(newRows);
+          if (error) throw error;
+        }
         await db.rpc("increment_catalog_sync_processed", {
           run_uuid: body.run_id,
           amount: rows.length,
