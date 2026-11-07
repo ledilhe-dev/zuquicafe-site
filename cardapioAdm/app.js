@@ -1,7 +1,7 @@
 import QRCode from 'https://esm.sh/qrcode@1.5.4';
 import JSZip from 'https://esm.sh/jszip@3.10.1';
 const cfg=window.ZUQUI_CARDAPIO_CONFIG||{};
-const CONNECTOR_VERSION='2.0.41';
+const CONNECTOR_VERSION='2.0.42';
 let token=localStorage.getItem('zuqui_admin_token')||'',refreshToken=localStorage.getItem('zuqui_admin_refresh')||'',state={},tab='products',filters={contains:'',group:'',groupId:'',onlyActiveGroups:false,onlyActive:false},selectedProducts=new Set(),filterTimer;
 const $=id=>document.getElementById(id),esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 document.addEventListener('click',e=>{const button=e.target.closest('[data-category-editorial]');if(!button)return;e.preventDefault();e.stopImmediatePropagation();openCategoryEditor(button.dataset.categoryEditorial)},true);
